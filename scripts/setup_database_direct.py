@@ -143,11 +143,166 @@ def create_analysis_table(conn):
         cursor.execute(create_sql)
         logger.info("✅ Analysis table created successfully!")
 
+def create_support_tickets_table(conn):
+    """Create the support tickets table."""
+    logger.info("Creating support tickets table...")
+    
+    create_sql = """
+    CREATE TABLE IF NOT EXISTS support_tickets (
+        id INTEGER IDENTITY(1,1) PRIMARY KEY,
+        ticket_id VARCHAR(50) UNIQUE NOT NULL,
+        customer_id VARCHAR(50) NOT NULL,
+        contract_id VARCHAR(50),
+        ticket_number VARCHAR(50) UNIQUE NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        description TEXT,
+        priority VARCHAR(20) DEFAULT 'medium',
+        status VARCHAR(50) DEFAULT 'open',
+        category VARCHAR(100),
+        subcategory VARCHAR(100),
+        assigned_to VARCHAR(100),
+        created_by VARCHAR(100),
+        created_at TIMESTAMP DEFAULT GETDATE(),
+        updated_at TIMESTAMP DEFAULT GETDATE(),
+        resolved_at TIMESTAMP,
+        first_response_time_minutes INTEGER,
+        resolution_time_minutes INTEGER,
+        customer_satisfaction_score DECIMAL(3,2),
+        escalation_count INTEGER DEFAULT 0,
+        interaction_count INTEGER DEFAULT 0,
+        sentiment_score DECIMAL(6,3) DEFAULT 0.0,
+        urgency_score DECIMAL(6,3) DEFAULT 0.0,
+        complexity_score DECIMAL(6,3) DEFAULT 0.0,
+        ai_analysis VARCHAR(65535),
+        tags VARCHAR(65535),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+        FOREIGN KEY (contract_id) REFERENCES contracts(contract_id)
+    )
+    """
+    
+    with conn.cursor() as cursor:
+        cursor.execute(create_sql)
+        logger.info("✅ Support tickets table created successfully!")
+
+def create_ticket_interactions_table(conn):
+    """Create the ticket interactions table for tracking all communications."""
+    logger.info("Creating ticket interactions table...")
+    
+    create_sql = """
+    CREATE TABLE IF NOT EXISTS ticket_interactions (
+        id INTEGER IDENTITY(1,1) PRIMARY KEY,
+        interaction_id VARCHAR(50) UNIQUE NOT NULL,
+        ticket_id VARCHAR(50) NOT NULL,
+        customer_id VARCHAR(50) NOT NULL,
+        interaction_type VARCHAR(50) NOT NULL,
+        direction VARCHAR(20) NOT NULL,
+        channel VARCHAR(50),
+        subject VARCHAR(255),
+        content TEXT,
+        sender VARCHAR(100),
+        recipient VARCHAR(100),
+        timestamp TIMESTAMP DEFAULT GETDATE(),
+        duration_minutes INTEGER,
+        sentiment_score DECIMAL(6,3) DEFAULT 0.0,
+        urgency_score DECIMAL(6,3) DEFAULT 0.0,
+        resolution_contribution DECIMAL(6,3) DEFAULT 0.0,
+        ai_analysis VARCHAR(65535),
+        metadata VARCHAR(65535),
+        FOREIGN KEY (ticket_id) REFERENCES support_tickets(ticket_id),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    )
+    """
+    
+    with conn.cursor() as cursor:
+        cursor.execute(create_sql)
+        logger.info("✅ Ticket interactions table created successfully!")
+
+def create_referral_calls_table(conn):
+    """Create the referral calls table."""
+    logger.info("Creating referral calls table...")
+    
+    create_sql = """
+    CREATE TABLE IF NOT EXISTS referral_calls (
+        id INTEGER IDENTITY(1,1) PRIMARY KEY,
+        call_id VARCHAR(50) UNIQUE NOT NULL,
+        customer_id VARCHAR(50) NOT NULL,
+        contract_id VARCHAR(50),
+        call_number VARCHAR(50) UNIQUE NOT NULL,
+        call_type VARCHAR(50) NOT NULL,
+        call_purpose VARCHAR(255),
+        call_summary TEXT,
+        call_outcome VARCHAR(100),
+        call_status VARCHAR(50) DEFAULT 'scheduled',
+        scheduled_at TIMESTAMP,
+        started_at TIMESTAMP,
+        ended_at TIMESTAMP,
+        duration_minutes INTEGER,
+        participants TEXT,
+        decision_makers_present BOOLEAN DEFAULT FALSE,
+        budget_discussed BOOLEAN DEFAULT FALSE,
+        timeline_discussed BOOLEAN DEFAULT FALSE,
+        objections_raised TEXT,
+        next_steps TEXT,
+        follow_up_date TIMESTAMP,
+        probability_of_conversion DECIMAL(6,3) DEFAULT 0.0,
+        estimated_deal_value DECIMAL(15,2),
+        negotiation_stage VARCHAR(50),
+        sentiment_score DECIMAL(6,3) DEFAULT 0.0,
+        urgency_score DECIMAL(6,3) DEFAULT 0.0,
+        ai_analysis VARCHAR(65535),
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT GETDATE(),
+        updated_at TIMESTAMP DEFAULT GETDATE(),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+        FOREIGN KEY (contract_id) REFERENCES contracts(contract_id)
+    )
+    """
+    
+    with conn.cursor() as cursor:
+        cursor.execute(create_sql)
+        logger.info("✅ Referral calls table created successfully!")
+
+def create_call_negotiations_table(conn):
+    """Create the call negotiations table for tracking negotiation details."""
+    logger.info("Creating call negotiations table...")
+    
+    create_sql = """
+    CREATE TABLE IF NOT EXISTS call_negotiations (
+        id INTEGER IDENTITY(1,1) PRIMARY KEY,
+        negotiation_id VARCHAR(50) UNIQUE NOT NULL,
+        call_id VARCHAR(50) NOT NULL,
+        customer_id VARCHAR(50) NOT NULL,
+        negotiation_topic VARCHAR(255) NOT NULL,
+        initial_position TEXT,
+        counter_position TEXT,
+        final_position TEXT,
+        negotiation_tactic VARCHAR(100),
+        concession_made BOOLEAN DEFAULT FALSE,
+        concession_value DECIMAL(15,2),
+        concession_type VARCHAR(100),
+        objection_handled BOOLEAN DEFAULT FALSE,
+        objection_type VARCHAR(100),
+        objection_response TEXT,
+        decision_made BOOLEAN DEFAULT FALSE,
+        decision_outcome VARCHAR(100),
+        confidence_score DECIMAL(6,3) DEFAULT 0.0,
+        risk_assessment VARCHAR(100),
+        ai_analysis VARCHAR(65535),
+        timestamp TIMESTAMP DEFAULT GETDATE(),
+        FOREIGN KEY (call_id) REFERENCES referral_calls(call_id),
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+    )
+    """
+    
+    with conn.cursor() as cursor:
+        cursor.execute(create_sql)
+        logger.info("✅ Call negotiations table created successfully!")
+
 def verify_tables(conn):
     """Verify that all tables were created correctly."""
     logger.info("Verifying table creation...")
     
-    expected_tables = ['customers', 'contracts', 'analysis']
+    expected_tables = ['customers', 'contracts', 'analysis', 'support_tickets', 'ticket_interactions', 'referral_calls', 'call_negotiations']
     
     with conn.cursor() as cursor:
         cursor.execute("""
@@ -173,7 +328,7 @@ def show_table_schemas(conn):
     """Display the schema of created tables."""
     logger.info("Displaying table schemas...")
     
-    tables = ['customers', 'contracts', 'analysis']
+    tables = ['customers', 'contracts', 'analysis', 'support_tickets', 'ticket_interactions', 'referral_calls', 'call_negotiations']
     
     for table in tables:
         logger.info(f"\n--- {table.upper()} TABLE SCHEMA ---")
@@ -210,6 +365,10 @@ def main():
         create_customers_table(conn)
         create_contracts_table(conn)
         create_analysis_table(conn)
+        create_support_tickets_table(conn)
+        create_ticket_interactions_table(conn)
+        create_referral_calls_table(conn)
+        create_call_negotiations_table(conn)
         
         # Commit changes
         conn.commit()

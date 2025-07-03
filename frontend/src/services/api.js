@@ -109,4 +109,26 @@ export const getContracts = async (params = {}) => {
   return response.data;
 };
 
+// Support and Referral Analysis endpoints
+export const getSupportTicketsAnalysis = async (includeAIInsights = true) => {
+  const response = await api.get('/api/v1/analysis/support-tickets', {
+    params: { include_ai_insights: includeAIInsights }
+  });
+  return response.data;
+};
+
+export const getReferralCallsAnalysis = async (includeAIInsights = true) => {
+  const response = await api.get('/api/v1/analysis/referral-calls', {
+    params: { include_ai_insights: includeAIInsights }
+  });
+  return response.data;
+};
+
+export const getCustomerJourneyAnalysis = async (customerId, includeAIInsights = true) => {
+  const response = await api.get(`/api/v1/analysis/customer-journey/${customerId}`, {
+    params: { include_ai_insights: includeAIInsights }
+  });
+  return response.data;
+};
+
 export default api; 

@@ -295,6 +295,91 @@ export const invalidateCache = (pattern) => {
   return cacheService.invalidatePattern(pattern);
 };
 
+// Support and Referral Analysis endpoints
+export const getSupportTicketsAnalysis = async (includeAIInsights = false, forceRefresh = false) => {
+  const cacheKey = cacheService.generateKey('support-tickets', { includeAIInsights });
+  const config = {
+    ttl: 2 * 60 * 60 * 1000, // 2 hours
+    backgroundRefresh: true
+  };
+
+  if (!forceRefresh) {
+    const cachedData = cacheService.getWithAge(cacheKey);
+    if (cachedData) {
+      if (cachedData.isStale && config.backgroundRefresh && !backgroundRefreshQueue.has(cacheKey)) {
+        backgroundRefreshQueue.add(cacheKey);
+        setTimeout(async () => {
+          try {
+            const freshData = await api.getSupportTicketsAnalysis(includeAIInsights);
+            cacheService.set(cacheKey, freshData, config.ttl);
+            console.log('Background refresh completed for support-tickets');
+          } catch (error) {
+            console.warn('Background refresh failed for support-tickets:', error);
+          } finally {
+            backgroundRefreshQueue.delete(cacheKey);
+          }
+        }, 100);
+      }
+      return cachedData.data;
+    }
+  }
+
+  try {
+    const data = await api.getSupportTicketsAnalysis(includeAIInsights);
+    cacheService.set(cacheKey, data, config.ttl);
+    return data;
+  } catch (error) {
+    const staleData = cacheService.get(cacheKey);
+    if (staleData) {
+      console.warn('Using stale cache data due to API error:', error.message);
+      return staleData;
+    }
+    throw error;
+  }
+};
+
+export const getReferralCallsAnalysis = async (includeAIInsights = false, forceRefresh = false) => {
+  const cacheKey = cacheService.generateKey('referral-calls', { includeAIInsights });
+  const config = {
+    ttl: 2 * 60 * 60 * 1000, // 2 hours
+    backgroundRefresh: true
+  };
+
+  if (!forceRefresh) {
+    const cachedData = cacheService.getWithAge(cacheKey);
+    if (cachedData) {
+      if (cachedData.isStale && config.backgroundRefresh && !backgroundRefreshQueue.has(cacheKey)) {
+        backgroundRefreshQueue.add(cacheKey);
+        setTimeout(async () => {
+          try {
+            const freshData = await api.getReferralCallsAnalysis(includeAIInsights);
+            cacheService.set(cacheKey, freshData, config.ttl);
+            console.log('Background refresh completed for referral-calls');
+          } catch (error) {
+            console.warn('Background refresh failed for referral-calls:', error);
+          } finally {
+            backgroundRefreshQueue.delete(cacheKey);
+          }
+        }, 100);
+      }
+      return cachedData.data;
+    }
+  }
+
+  try {
+    const data = await api.getReferralCallsAnalysis(includeAIInsights);
+    cacheService.set(cacheKey, data, config.ttl);
+    return data;
+  } catch (error) {
+    const staleData = cacheService.get(cacheKey);
+    if (staleData) {
+      console.warn('Using stale cache data due to API error:', error.message);
+      return staleData;
+    }
+    throw error;
+  }
+};
+
 // Export the original API functions for non-cached operations
 export const {
   checkHealth,

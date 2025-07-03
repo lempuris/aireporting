@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai.chains.data_analyzer import data_analyzer
 from ai.chains.predictive_analyzer import predictive_analyzer
+from ai.chains.support_referral_analyzer import support_referral_analyzer
 from ai.processors.insight_processor import insight_processor
 from config.settings import settings
 
@@ -112,6 +113,84 @@ def get_business_metrics():
         
     except Exception as e:
         logger.error(f"API Error in business metrics analysis: {e}")
+        return jsonify({
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/v1/analysis/support-tickets', methods=['GET'])
+def get_support_tickets_analysis():
+    """Get support tickets analysis."""
+    try:
+        logger.info("API: Support tickets analysis requested")
+        result = support_referral_analyzer.analyze_support_tickets()
+        
+        if "error" in result:
+            return jsonify({
+                'error': result['error'],
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"API Error in support tickets analysis: {e}")
+        return jsonify({
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/v1/analysis/referral-calls', methods=['GET'])
+def get_referral_calls_analysis():
+    """Get referral calls analysis."""
+    try:
+        logger.info("API: Referral calls analysis requested")
+        result = support_referral_analyzer.analyze_referral_calls()
+        
+        if "error" in result:
+            return jsonify({
+                'error': result['error'],
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"API Error in referral calls analysis: {e}")
+        return jsonify({
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/v1/analysis/customer-journey/<customer_id>', methods=['GET'])
+def get_customer_journey_analysis(customer_id):
+    """Get customer support journey analysis."""
+    try:
+        logger.info(f"API: Customer journey analysis requested for: {customer_id}")
+        result = support_referral_analyzer.analyze_customer_support_journey(customer_id)
+        
+        if "error" in result:
+            return jsonify({
+                'error': result['error'],
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"API Error in customer journey analysis: {e}")
         return jsonify({
             'error': str(e),
             'timestamp': datetime.now().isoformat()

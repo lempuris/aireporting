@@ -1,7 +1,7 @@
 class CacheService {
   constructor() {
     this.cache = new Map();
-    this.defaultTTL = 5 * 60 * 1000; // 5 minutes default
+    this.defaultTTL = 30 * 60 * 1000; // 30 minutes default (increased from 5 minutes)
     this.maxCacheSize = 50; // Maximum number of cached items
   }
 
@@ -159,35 +159,35 @@ const cacheService = new CacheService();
 // Cache configuration for different endpoints
 export const CACHE_CONFIG = {
   'customer-health': {
-    ttl: 10 * 60 * 1000, // 10 minutes
+    ttl: 60 * 60 * 1000, // 1 hour (increased from 10 minutes)
     backgroundRefresh: true
   },
   'customers': {
-    ttl: 5 * 60 * 1000, // 5 minutes
+    ttl: 30 * 60 * 1000, // 30 minutes (increased from 5 minutes)
     backgroundRefresh: true
   },
   'contract-performance': {
-    ttl: 15 * 60 * 1000, // 15 minutes
+    ttl: 2 * 60 * 60 * 1000, // 2 hours (increased from 15 minutes)
     backgroundRefresh: true
   },
   'business-metrics': {
-    ttl: 10 * 60 * 1000, // 10 minutes
+    ttl: 60 * 60 * 1000, // 1 hour (increased from 10 minutes)
     backgroundRefresh: true
   },
   'comprehensive': {
-    ttl: 20 * 60 * 1000, // 20 minutes
+    ttl: 4 * 60 * 60 * 1000, // 4 hours (increased from 20 minutes)
     backgroundRefresh: false // Too expensive for background refresh
   },
   'churn': {
-    ttl: 30 * 60 * 1000, // 30 minutes
+    ttl: 6 * 60 * 60 * 1000, // 6 hours (increased from 30 minutes)
     backgroundRefresh: false
   },
   'revenue-forecast': {
-    ttl: 60 * 60 * 1000, // 1 hour
+    ttl: 24 * 60 * 60 * 1000, // 24 hours (increased from 1 hour)
     backgroundRefresh: false
   },
   'customer-ltv': {
-    ttl: 15 * 60 * 1000, // 15 minutes
+    ttl: 2 * 60 * 60 * 1000, // 2 hours (increased from 15 minutes)
     backgroundRefresh: true
   }
 };

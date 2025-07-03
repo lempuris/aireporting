@@ -8,7 +8,9 @@ import {
   Database, 
   Lightbulb,
   Brain,
-  Activity
+  Activity,
+  MessageSquare,
+  Phone
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -48,6 +50,18 @@ const Sidebar = () => {
       href: '/insights',
       icon: Lightbulb,
       description: 'Generated insights'
+    },
+    {
+      name: 'Support Analysis',
+      href: '/support',
+      icon: MessageSquare,
+      description: 'Support ticket analytics'
+    },
+    {
+      name: 'Referral Analysis',
+      href: '/referrals',
+      icon: Phone,
+      description: 'Referral call insights'
     }
   ];
 

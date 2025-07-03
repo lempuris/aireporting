@@ -8,6 +8,8 @@ import ContractAnalysis from './pages/ContractAnalysis';
 import PredictiveAnalytics from './pages/PredictiveAnalytics';
 import DataExplorer from './pages/DataExplorer';
 import Insights from './pages/Insights';
+import SupportAnalysis from './pages/SupportAnalysis';
+import ReferralAnalysis from './pages/ReferralAnalysis';
 
 function App() {
   return (
@@ -23,6 +25,8 @@ function App() {
               <Route path="/predictions" element={<PredictiveAnalytics />} />
               <Route path="/data" element={<DataExplorer />} />
               <Route path="/insights" element={<Insights />} />
+              <Route path="/support" element={<SupportAnalysis />} />
+              <Route path="/referrals" element={<ReferralAnalysis />} />
             </Routes>
           </main>
         </div>

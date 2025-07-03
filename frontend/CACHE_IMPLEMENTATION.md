@@ -53,18 +53,37 @@ This implementation provides intelligent frontend caching to significantly impro
 ```javascript
 export const CACHE_CONFIG = {
   'customer-health': {
-    ttl: 10 * 60 * 1000, // 10 minutes
+    ttl: 60 * 60 * 1000, // 1 hour
     backgroundRefresh: true
   },
   'customers': {
-    ttl: 5 * 60 * 1000, // 5 minutes
+    ttl: 30 * 60 * 1000, // 30 minutes
     backgroundRefresh: true
   },
   'contract-performance': {
-    ttl: 15 * 60 * 1000, // 15 minutes
+    ttl: 2 * 60 * 60 * 1000, // 2 hours
     backgroundRefresh: true
   },
-  // ... more endpoints
+  'business-metrics': {
+    ttl: 60 * 60 * 1000, // 1 hour
+    backgroundRefresh: true
+  },
+  'comprehensive': {
+    ttl: 4 * 60 * 60 * 1000, // 4 hours
+    backgroundRefresh: false
+  },
+  'churn': {
+    ttl: 6 * 60 * 60 * 1000, // 6 hours
+    backgroundRefresh: false
+  },
+  'revenue-forecast': {
+    ttl: 24 * 60 * 60 * 1000, // 24 hours
+    backgroundRefresh: false
+  },
+  'customer-ltv': {
+    ttl: 2 * 60 * 60 * 1000, // 2 hours
+    backgroundRefresh: true
+  }
 };
 ```
 
@@ -73,7 +92,7 @@ export const CACHE_CONFIG = {
 ```javascript
 class CacheService {
   constructor() {
-    this.defaultTTL = 5 * 60 * 1000; // 5 minutes default
+    this.defaultTTL = 30 * 60 * 1000; // 30 minutes default
     this.maxCacheSize = 50; // Maximum cached items
   }
 }
