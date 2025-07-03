@@ -1,0 +1,21 @@
+# Core dependencies
+langchain==0.1.0
+langchain-openai==0.0.5
+langchain-community==0.0.10
+psycopg2-binary==2.9.9
+
+# Web framework
+flask==3.0.0
+flask-cors==4.0.0
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Utilities
+requests==2.31.0
+
+# For data generation
+faker==20.1.0
+
+# AI and LangChain
+openai==1.6.1 
