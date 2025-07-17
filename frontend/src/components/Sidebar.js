@@ -70,7 +70,7 @@ const Sidebar = () => {
       <div className="flex flex-col w-64">
         <div className="flex flex-col h-0 flex-1 bg-white border-r border-gray-200">
           {/* Logo */}
-          <div className="flex items-center h-16 flex-shrink-0 px-4 bg-gradient-to-r from-primary-600 to-indigo-600">
+          <div className="flex items-center h-20 flex-shrink-0 px-4 bg-gradient-to-r from-primary-600 to-indigo-600">
             <div className="flex items-center">
               <Brain className="h-8 w-8 text-white" />
               <div className="ml-3">

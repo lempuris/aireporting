@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "Bash(npx react-scripts:*)",
+      "Bash(echo $HOST)",
+      "Bash(set HOST=localhost)",
+      "Bash(npm install:*)"
+    ],
+    "deny": []
+  }
+}

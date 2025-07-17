@@ -7,19 +7,19 @@
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.4.0",
+    "clsx": "^1.2.1",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^10.12.16",
+    "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "axios": "^1.4.0",
-    "react-router-dom": "^6.11.1",
-    "recharts": "^2.6.2",
-    "lucide-react": "^0.263.1",
-    "clsx": "^1.2.1",
-    "tailwind-merge": "^1.13.2",
     "react-hot-toast": "^2.4.1",
-    "framer-motion": "^10.12.16",
     "react-loading-skeleton": "^3.3.1",
-    "date-fns": "^2.30.0"
+    "react-router-dom": "^6.11.1",
+    "react-scripts": "^5.0.1",
+    "recharts": "^2.6.2",
+    "tailwind-merge": "^1.13.2"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -46,9 +46,9 @@
     ]
   },
   "devDependencies": {
-    "tailwindcss": "^3.3.2",
     "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.24"
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2"
   },
   "proxy": "http://localhost:5000"
-} 
+}
