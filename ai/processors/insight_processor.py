@@ -48,7 +48,7 @@ class InsightProcessor:
                     FROM customers
                     WHERE status = 'active'
                     AND (ai_insights IS NULL 
-                         OR updated_at < CURRENT_DATE - INTERVAL '7 days'
+                         OR updated_at < DATEADD(day, -7, CURRENT_DATE)
                          OR churn_risk_score > 0.7)
                     ORDER BY churn_risk_score DESC
                     LIMIT 50
@@ -98,7 +98,7 @@ class InsightProcessor:
                     JOIN customers cust ON c.customer_id = cust.customer_id
                     WHERE c.status = 'active'
                     AND (c.ai_analysis IS NULL 
-                         OR c.updated_at < CURRENT_DATE - INTERVAL '7 days'
+                         OR c.updated_at < DATEADD(day, -7, CURRENT_DATE)
                          OR c.renewal_probability < 0.4)
                     ORDER BY c.renewal_probability ASC
                     LIMIT 30

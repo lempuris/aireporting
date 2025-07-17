@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from config.settings import settings
 from ai.models.llm_config import llm_config
 from langchain.schema import HumanMessage
+from database import get_connection_context
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +31,11 @@ class PredictiveAnalyzer:
         
     def get_connection(self):
         """
-        Create and return a connection to the Redshift database using settings from the config.
+        Get a connection from the connection pool.
+        Note: This method is deprecated. Use get_connection_context() instead.
         """
-        return psycopg2.connect(
-            host=settings.REDSHIFT_HOST,
-            port=settings.REDSHIFT_PORT,
-            database=settings.REDSHIFT_DATABASE,
-            user=settings.REDSHIFT_USERNAME,
-            password=settings.REDSHIFT_PASSWORD
-        )
+        from database import get_connection
+        return get_connection()
     
     def predict_customer_churn(self, customer_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -48,9 +45,9 @@ class PredictiveAnalyzer:
         logger.info(f"Predicting churn risk for customer: {customer_id or 'all'}")
         
         try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                if customer_id:
+            with get_connection_context() as conn:
+                with conn.cursor() as cursor:
+                    if customer_id:
                     # Analyze a specific customer by ID
                     cursor.execute("""
                         SELECT 
@@ -128,7 +125,6 @@ class PredictiveAnalyzer:
                                                "segment": c[7]} for c in high_risk_customers]
                     }
             
-            conn.close()
             
             # Generate AI predictions using the helper method
             predictions = self._generate_churn_predictions(prediction_data)
@@ -193,8 +189,8 @@ class PredictiveAnalyzer:
         logger.info(f"Predicting revenue forecast for next {months} months")
         
         try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
+            with get_connection_context() as conn:
+                with conn.cursor() as cursor:
                 # Get historical revenue data for the last 12 months
                 cursor.execute("""
                     SELECT 
@@ -202,7 +198,7 @@ class PredictiveAnalyzer:
                         SUM(CASE WHEN metric_name LIKE '%Revenue%' THEN metric_value ELSE 0 END) as revenue,
                         COUNT(DISTINCT customer_id) as active_customers
                     FROM analysis
-                    WHERE analysis_date >= CURRENT_DATE - INTERVAL '12 months'
+                    WHERE analysis_date >= DATEADD(month, -12, CURRENT_DATE)
                     GROUP BY DATE_TRUNC('month', analysis_date)
                     ORDER BY month
                 """)
@@ -235,7 +231,6 @@ class PredictiveAnalyzer:
                 
                 segment_data = cursor.fetchall()
             
-            conn.close()
             
             # Prepare all relevant data for AI forecast
             forecast_data = {
@@ -304,8 +299,8 @@ class PredictiveAnalyzer:
         logger.info(f"Predicting LTV for customer: {customer_id}")
         
         try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
+            with get_connection_context() as conn:
+                with conn.cursor() as cursor:
                 # Get customer data by ID
                 cursor.execute("""
                     SELECT 
@@ -343,7 +338,6 @@ class PredictiveAnalyzer:
                 
                 similar_customers = cursor.fetchall()
             
-            conn.close()
             
             # Prepare all relevant data for AI prediction
             prediction_data = {

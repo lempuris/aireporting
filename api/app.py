@@ -16,7 +16,9 @@ from ai.chains.data_analyzer import data_analyzer
 from ai.chains.predictive_analyzer import predictive_analyzer
 from ai.chains.support_referral_analyzer import support_referral_analyzer
 from ai.processors.insight_processor import insight_processor
+from ai.models.llm_config import llm_config
 from config.settings import settings
+from database import get_connection_context, get_pool_status, cleanup_connections
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,7 +39,9 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'version': '1.0.0',
-        'ai_enabled': bool(settings.OPENAI_API_KEY)
+        'ai_enabled': bool(settings.OPENAI_API_KEY),
+        'database_pool': get_pool_status(),
+        'llm_cache': llm_config.get_cache_status()
     }), 200
 
 @app.route('/api/v1/analysis/customer-health', methods=['GET'])
@@ -455,7 +459,6 @@ def get_comprehensive_analysis():
 def get_customers():
     """Get customer data with optional filtering."""
     try:
-        import psycopg2
         
         # Get query parameters
         limit = request.args.get('limit', 50, type=int)
@@ -480,18 +483,11 @@ def get_customers():
         query += " ORDER BY churn_risk_score DESC LIMIT %s OFFSET %s"
         params.extend([str(limit), str(offset)])
         
-        # Execute query
-        conn = psycopg2.connect(
-            host=settings.REDSHIFT_HOST,
-            port=settings.REDSHIFT_PORT,
-            database=settings.REDSHIFT_DATABASE,
-            user=settings.REDSHIFT_USERNAME,
-            password=settings.REDSHIFT_PASSWORD
-        )
-        
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            customers = cursor.fetchall()
+        # Execute query using connection pool
+        with get_connection_context() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                customers = cursor.fetchall()
             
             # Get total count
             count_query = "SELECT COUNT(*) FROM customers WHERE status = %s"
@@ -548,7 +544,6 @@ def get_customers():
 def get_contracts():
     """Get contract data with optional filtering."""
     try:
-        import psycopg2
         
         # Get query parameters
         limit = request.args.get('limit', 50, type=int)
@@ -575,18 +570,11 @@ def get_contracts():
         query += " ORDER BY c.renewal_probability ASC LIMIT %s OFFSET %s"
         params.extend([str(limit), str(offset)])
         
-        # Execute query
-        conn = psycopg2.connect(
-            host=settings.REDSHIFT_HOST,
-            port=settings.REDSHIFT_PORT,
-            database=settings.REDSHIFT_DATABASE,
-            user=settings.REDSHIFT_USERNAME,
-            password=settings.REDSHIFT_PASSWORD
-        )
-        
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            contracts = cursor.fetchall()
+        # Execute query using connection pool
+        with get_connection_context() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                contracts = cursor.fetchall()
             
             # Get total count
             count_query = "SELECT COUNT(*) FROM contracts WHERE status = %s"
@@ -669,8 +657,15 @@ if __name__ == '__main__':
     logger.info("Starting Flask API server...")
     logger.info(f"OpenAI API Key configured: {'Yes' if settings.OPENAI_API_KEY else 'No'}")
     
-    app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=False
-    ) 
+    try:
+        app.run(
+            host='0.0.0.0',
+            port=5000,
+            debug=False
+        )
+    except KeyboardInterrupt:
+        logger.info("Shutting down Flask API server...")
+    finally:
+        # Clean up database connections
+        cleanup_connections()
+        logger.info("Database connections cleaned up") 
