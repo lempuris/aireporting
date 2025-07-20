@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FileText, 
@@ -18,6 +18,8 @@ import { getContractPerformance, getContracts, getCacheStats } from '../services
 
 const ContractAnalysis = () => {
   const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
+  const [contractsLoading, setContractsLoading] = useState(true);
   const [data, setData] = useState(null);
   const [contracts, setContracts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,15 +38,21 @@ const ContractAnalysis = () => {
   const fetchData = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
+      setChartsLoading(true);
+      setContractsLoading(true);
       setIsUsingCache(false);
       
       const startTime = performance.now();
-      const [contractData, contractsData] = await Promise.all([
-        getContractPerformance(forceRefresh),
-        getContracts({ limit: 50 }, forceRefresh)
-      ]);
+      
+      // Load contract performance first (for charts)
+      const contractData = await getContractPerformance(forceRefresh);
       const endTime = performance.now();
       const loadTime = endTime - startTime;
+      
+      // Set main data and immediately stop charts loading
+      setData(contractData.data);
+      setChartsLoading(false);
+      setLoading(false);
       
       // Check if we're using cached data
       if (loadTime < 100 && !forceRefresh) {
@@ -56,14 +64,26 @@ const ContractAnalysis = () => {
         toast.success(`Data loaded (${loadTime.toFixed(0)}ms)`);
       }
 
-      setData(contractData.data);
-      setContracts(contractsData.data.contracts);
       setCacheStats(getCacheStats());
+      
+      // Load contracts data in background for table (non-blocking) - reduced to 15 for faster loading
+      getContracts({ limit: 15 }, forceRefresh)
+        .then(contractsData => {
+          setContracts(contractsData.data.contracts);
+          setContractsLoading(false);
+        })
+        .catch(error => {
+          console.warn('Failed to load contracts list:', error);
+          setContracts([]);
+          setContractsLoading(false);
+        });
+        
     } catch (error) {
       console.error('Error fetching contract data:', error);
-      toast.error('Failed to load contract data');
-    } finally {
+      toast.error('Failed to load contract analysis');
       setLoading(false);
+      setChartsLoading(false);
+      setContractsLoading(false);
     }
   }, []);
 
@@ -131,6 +151,40 @@ const ContractAnalysis = () => {
     }
     return dataArray;
   }, [data?.metrics?.contract_types]);
+
+  // Memoized skeleton loading component
+  const ChartSkeleton = memo(() => (
+    <div className="animate-pulse">
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-1/3"></div>
+      <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+    </div>
+  ));
+
+  // Memoized table skeleton component
+  const TableSkeleton = memo(() => (
+    <div className="animate-pulse">
+      <div className="flex justify-between mb-6">
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+        <div className="flex space-x-4">
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-48"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex space-x-6">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ));
 
   if (loading) {
     return (
@@ -216,50 +270,56 @@ const ContractAnalysis = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Contract Types Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={contractTypeData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {contractTypeData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-primary))',
-                  border: 'none',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                  padding: '12px 16px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  backdropFilter: 'blur(10px)',
-                  WebkitBackdropFilter: 'blur(10px)',
-                  minWidth: '120px'
-                }}
-                labelStyle={{ 
-                  color: 'rgb(var(--color-text-primary))', 
-                  fontWeight: '600',
-                  marginBottom: '4px',
-                  fontSize: '12px',
-                  textTransform: 'capitalize'
-                }}
-                itemStyle={{
-                  color: 'rgb(var(--color-text-secondary))',
-                  fontSize: '13px'
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {chartsLoading ? (
+            <ChartSkeleton />
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Contract Types Distribution</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={contractTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {contractTypeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgb(var(--color-bg-primary))',
+                      border: 'none',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                      padding: '12px 16px',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      backdropFilter: 'blur(10px)',
+                      WebkitBackdropFilter: 'blur(10px)',
+                      minWidth: '120px'
+                    }}
+                    labelStyle={{ 
+                      color: 'rgb(var(--color-text-primary))', 
+                      fontWeight: '600',
+                      marginBottom: '4px',
+                      fontSize: '12px',
+                      textTransform: 'capitalize'
+                    }}
+                    itemStyle={{
+                      color: 'rgb(var(--color-text-secondary))',
+                      fontSize: '13px'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </>
+          )}
         </motion.div>
 
         {/* Renewal Rate Trends */}
@@ -268,55 +328,61 @@ const ContractAnalysis = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Renewal Rate by Contract Type</h3>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={renewalData} margin={{ top: 5, right: 30, left: 20, bottom: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
-              <XAxis 
-                dataKey="month" 
-                stroke={getChartColor()} 
-                angle={-45}
-                textAnchor="end"
-                height={70}
-                interval={0}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis stroke={getChartColor()} />
-              <Tooltip 
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div style={{ 
-                        backgroundColor: 'rgb(var(--color-bg-primary))',
-                        border: 'none',
-                        borderRadius: '8px',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                        padding: '12px 16px',
-                        fontSize: '13px',
-                        fontWeight: '500',
-                        backdropFilter: 'blur(10px)',
-                        WebkitBackdropFilter: 'blur(10px)',
-                        minWidth: '150px',
-                        color: 'rgb(var(--color-text-primary))'
-                      }}>
-                        <p style={{ fontWeight: '600', marginBottom: '6px', fontSize: '12px' }}>{label}</p>
-                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '2px' }}>
-                          Renewal Rate: {data.rate.toFixed(1)}%
-                        </p>
-                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '0' }}>
-                          Contracts: {data.contracts}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-                cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
-              />
-              <Bar dataKey="rate" fill="#10B981" />
-            </BarChart>
-          </ResponsiveContainer>
+          {chartsLoading ? (
+            <ChartSkeleton />
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Renewal Rate by Contract Type</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={renewalData} margin={{ top: 5, right: 30, left: 20, bottom: 80 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+                  <XAxis 
+                    dataKey="month" 
+                    stroke={getChartColor()} 
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
+                    interval={0}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <YAxis stroke={getChartColor()} />
+                  <Tooltip 
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div style={{ 
+                            backgroundColor: 'rgb(var(--color-bg-primary))',
+                            border: 'none',
+                            borderRadius: '8px',
+                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                            padding: '12px 16px',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            backdropFilter: 'blur(10px)',
+                            WebkitBackdropFilter: 'blur(10px)',
+                            minWidth: '150px',
+                            color: 'rgb(var(--color-text-primary))'
+                          }}>
+                            <p style={{ fontWeight: '600', marginBottom: '6px', fontSize: '12px' }}>{label}</p>
+                            <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '2px' }}>
+                              Renewal Rate: {data.rate.toFixed(1)}%
+                            </p>
+                            <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '0' }}>
+                              Contracts: {data.contracts}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                    cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
+                  />
+                  <Bar dataKey="rate" fill="#10B981" />
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          )}
         </motion.div>
       </div>
 
@@ -326,43 +392,49 @@ const ContractAnalysis = () => {
         animate={{ opacity: 1, y: 0 }}
         className="card"
       >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Contract Values by Type</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={valueData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
-            <XAxis dataKey="type" stroke={getChartColor()} />
-            <YAxis stroke={getChartColor()} />
-            <Tooltip 
-              formatter={(value) => [`$${value.toLocaleString()}`, 'Value']} 
-              contentStyle={{ 
-                backgroundColor: 'rgb(var(--color-bg-primary))',
-                border: 'none',
-                borderRadius: '8px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                padding: '12px 16px',
-                fontSize: '13px',
-                fontWeight: '500',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                minWidth: '120px'
-              }}
-              labelStyle={{ 
-                color: 'rgb(var(--color-text-primary))', 
-                fontWeight: '600',
-                marginBottom: '4px',
-                fontSize: '12px',
-                textTransform: 'capitalize'
-              }}
-              itemStyle={{
-                color: 'rgb(var(--color-text-secondary))',
-                fontSize: '13px'
-              }}
-              cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
-            />
-            <Bar dataKey="avgValue" fill="#3B82F6" name="Average Value" />
-            <Bar dataKey="totalValue" fill="#8B5CF6" name="Total Value" />
-          </BarChart>
-        </ResponsiveContainer>
+        {chartsLoading ? (
+          <ChartSkeleton />
+        ) : (
+          <>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Contract Values by Type</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={valueData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+                <XAxis dataKey="type" stroke={getChartColor()} />
+                <YAxis stroke={getChartColor()} />
+                <Tooltip 
+                  formatter={(value) => [`$${value.toLocaleString()}`, 'Value']} 
+                  contentStyle={{ 
+                    backgroundColor: 'rgb(var(--color-bg-primary))',
+                    border: 'none',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                    padding: '12px 16px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    minWidth: '120px'
+                  }}
+                  labelStyle={{ 
+                    color: 'rgb(var(--color-text-primary))', 
+                    fontWeight: '600',
+                    marginBottom: '4px',
+                    fontSize: '12px',
+                    textTransform: 'capitalize'
+                  }}
+                  itemStyle={{
+                    color: 'rgb(var(--color-text-secondary))',
+                    fontSize: '13px'
+                  }}
+                  cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
+                />
+                <Bar dataKey="avgValue" fill="#3B82F6" name="Average Value" />
+                <Bar dataKey="totalValue" fill="#8B5CF6" name="Total Value" />
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
       </motion.div>
 
       {/* AI Insights */}
@@ -393,122 +465,128 @@ const ContractAnalysis = () => {
         animate={{ opacity: 1, y: 0 }}
         className="card"
       >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold" style={{ color: 'rgb(var(--color-text-primary))' }}>Contract List</h3>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: 'rgb(var(--color-text-tertiary))' }} />
-              <input
-                type="text"
-                placeholder="Search contracts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
-                style={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))',
-                  borderColor: 'rgb(var(--color-border-secondary))',
-                  color: 'rgb(var(--color-text-primary))'
-                }}
-              />
+        {contractsLoading ? (
+          <TableSkeleton />
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold" style={{ color: 'rgb(var(--color-text-primary))' }}>Contract List</h3>
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: 'rgb(var(--color-text-tertiary))' }} />
+                  <input
+                    type="text"
+                    placeholder="Search contracts..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+                    style={{ 
+                      backgroundColor: 'rgb(var(--color-bg-secondary))',
+                      borderColor: 'rgb(var(--color-border-secondary))',
+                      color: 'rgb(var(--color-text-primary))'
+                    }}
+                  />
+                </div>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+                  style={{ 
+                    backgroundColor: 'rgb(var(--color-bg-secondary))',
+                    borderColor: 'rgb(var(--color-border-secondary))',
+                    color: 'rgb(var(--color-text-primary))'
+                  }}
+                >
+                  <option value="all">All Types</option>
+                  <option value="enterprise">Enterprise</option>
+                  <option value="professional">Professional</option>
+                  <option value="basic">Basic</option>
+                </select>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+                  style={{ 
+                    backgroundColor: 'rgb(var(--color-bg-secondary))',
+                    borderColor: 'rgb(var(--color-border-secondary))',
+                    color: 'rgb(var(--color-text-primary))'
+                  }}
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
             </div>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
-              style={{ 
-                backgroundColor: 'rgb(var(--color-bg-secondary))',
-                borderColor: 'rgb(var(--color-border-secondary))',
-                color: 'rgb(var(--color-text-primary))'
-              }}
-            >
-              <option value="all">All Types</option>
-              <option value="enterprise">Enterprise</option>
-              <option value="professional">Professional</option>
-              <option value="basic">Basic</option>
-            </select>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
-              style={{ 
-                backgroundColor: 'rgb(var(--color-bg-secondary))',
-                borderColor: 'rgb(var(--color-border-secondary))',
-                color: 'rgb(var(--color-text-primary))'
-              }}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="expired">Expired</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y" style={{ borderColor: 'rgb(var(--color-border))' }}>
-            <thead style={{ backgroundColor: 'rgb(var(--color-bg-tertiary))' }}>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  Contract ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  Value
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
-                  Renewal Rate
-                </th>
-              </tr>
-            </thead>
-            <tbody style={{ backgroundColor: 'rgb(var(--color-bg-secondary))' }} className="divide-y">
-              {filteredContracts.slice(0, 10).map((contract) => (
-                <tr key={contract.contract_id} className="hover:opacity-80 transition-opacity" style={{ borderColor: 'rgb(var(--color-border))' }}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{ color: 'rgb(var(--color-text-primary))' }}>
-                    #{contract.contract_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium" style={{ color: 'rgb(var(--color-text-primary))' }}>{contract.customer_name}</div>
-                      <div className="text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>{contract.customer_email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      contract.contract_type === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-opacity-30 dark:text-purple-300' :
-                      contract.contract_type === 'professional' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:bg-opacity-30 dark:text-blue-300' :
-                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:bg-opacity-30 dark:text-gray-300'
-                    }`}>
-                      {contract.contract_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
-                    ${contract.contract_value?.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      contract.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:bg-opacity-30 dark:text-green-300' :
-                      contract.status === 'expired' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:bg-opacity-30 dark:text-red-300' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:bg-opacity-30 dark:text-yellow-300'
-                    }`}>
-                      {contract.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
-                    {((contract.renewal_rate || 0) * 100).toFixed(1)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y" style={{ borderColor: 'rgb(var(--color-border))' }}>
+                <thead style={{ backgroundColor: 'rgb(var(--color-bg-tertiary))' }}>
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                      Contract ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                      Customer
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                      Value
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                      Renewal Rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody style={{ backgroundColor: 'rgb(var(--color-bg-secondary))' }} className="divide-y">
+                  {filteredContracts.slice(0, 8).map((contract) => (
+                    <tr key={contract.contract_id} className="hover:opacity-80 transition-opacity" style={{ borderColor: 'rgb(var(--color-border))' }}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                        #{contract.contract_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium" style={{ color: 'rgb(var(--color-text-primary))' }}>{contract.customer_name}</div>
+                          <div className="text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>{contract.customer_email}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          contract.contract_type === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-opacity-30 dark:text-purple-300' :
+                          contract.contract_type === 'professional' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:bg-opacity-30 dark:text-blue-300' :
+                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:bg-opacity-30 dark:text-gray-300'
+                        }`}>
+                          {contract.contract_type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                        ${contract.contract_value?.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          contract.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:bg-opacity-30 dark:text-green-300' :
+                          contract.status === 'expired' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:bg-opacity-30 dark:text-red-300' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:bg-opacity-30 dark:text-yellow-300'
+                        }`}>
+                          {contract.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                        {((contract.renewal_rate || 0) * 100).toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </motion.div>
 
       {/* Cache Manager Modal */}

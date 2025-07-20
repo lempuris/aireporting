@@ -5,7 +5,8 @@
       "Bash(npx react-scripts:*)",
       "Bash(echo $HOST)",
       "Bash(set HOST=localhost)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
