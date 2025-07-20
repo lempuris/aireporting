@@ -48,82 +48,82 @@ class PredictiveAnalyzer:
             with get_connection_context() as conn:
                 with conn.cursor() as cursor:
                     if customer_id:
-                    # Analyze a specific customer by ID
-                    cursor.execute("""
-                        SELECT 
-                            customer_id, name, company, lifetime_value, engagement_score,
-                            churn_risk_score, support_tickets_count, last_activity,
-                            customer_segment, ai_insights
-                        FROM customers
-                        WHERE customer_id = %s
-                    """, (customer_id,))
-                    
-                    customer_data = cursor.fetchone()
-                    if not customer_data:
-                        return {"error": "Customer not found"}
-                    
-                    # Get customer's contracts
-                    cursor.execute("""
-                        SELECT contract_id, contract_type, contract_value, renewal_probability,
-                               performance_score, satisfaction_score
-                        FROM contracts
-                        WHERE customer_id = %s AND status = 'active'
-                    """, (customer_id,))
-                    
-                    contracts = cursor.fetchall()
-                    
-                    # Get recent analysis for customer
-                    cursor.execute("""
-                        SELECT metric_name, metric_value, trend_direction, risk_level
-                        FROM analysis
-                        WHERE customer_id = %s
-                        ORDER BY analysis_date DESC
-                        LIMIT 10
-                    """, (customer_id,))
-                    
-                    analysis = cursor.fetchall()
-                    
-                    # Prepare all relevant data for AI prediction
-                    prediction_data = {
-                        "customer": {
-                            "id": customer_data[0],
-                            "name": customer_data[1],
-                            "company": customer_data[2],
-                            "lifetime_value": float(customer_data[3]),
-                            "engagement_score": float(customer_data[4]),
-                            "churn_risk_score": float(customer_data[5]),
-                            "support_tickets": customer_data[6],
-                            "last_activity": customer_data[7].isoformat() if customer_data[7] else None,
-                            "segment": customer_data[8],
-                            "current_insights": customer_data[9]
-                        },
-                        "contracts": [{"id": c[0], "type": c[1], "value": float(c[2]), 
-                                     "renewal_prob": float(c[3]), "performance": float(c[4]), 
-                                     "satisfaction": float(c[5])} for c in contracts],
-                        "recent_analysis": [{"metric": a[0], "value": float(a[1]), 
-                                           "trend": a[2], "risk": a[3]} for a in analysis]
-                    }
-                else:
-                    # Analyze all customers for churn risk
-                    cursor.execute("""
-                        SELECT 
-                            customer_id, name, company, lifetime_value, engagement_score,
-                            churn_risk_score, support_tickets_count, customer_segment
-                        FROM customers
-                        WHERE status = 'active'
-                        ORDER BY churn_risk_score DESC
-                        LIMIT 20
-                    """)
-                    
-                    high_risk_customers = cursor.fetchall()
-                    
-                    # Prepare data for AI prediction
-                    prediction_data = {
-                        "high_risk_customers": [{"id": c[0], "name": c[1], "company": c[2], 
-                                               "lifetime_value": float(c[3]), "engagement": float(c[4]),
-                                               "churn_risk": float(c[5]), "support_tickets": c[6],
-                                               "segment": c[7]} for c in high_risk_customers]
-                    }
+                        # Analyze a specific customer by ID
+                        cursor.execute("""
+                            SELECT 
+                                customer_id, name, company, lifetime_value, engagement_score,
+                                churn_risk_score, support_tickets_count, last_activity,
+                                customer_segment, ai_insights
+                            FROM customers
+                            WHERE customer_id = %s
+                        """, (customer_id,))
+                        
+                        customer_data = cursor.fetchone()
+                        if not customer_data:
+                            return {"error": "Customer not found"}
+                        
+                        # Get customer's contracts
+                        cursor.execute("""
+                            SELECT contract_id, contract_type, contract_value, renewal_probability,
+                                   performance_score, satisfaction_score
+                            FROM contracts
+                            WHERE customer_id = %s AND status = 'active'
+                        """, (customer_id,))
+                        
+                        contracts = cursor.fetchall()
+                        
+                        # Get recent analysis for customer
+                        cursor.execute("""
+                            SELECT metric_name, metric_value, trend_direction, risk_level
+                            FROM analysis
+                            WHERE customer_id = %s
+                            ORDER BY analysis_date DESC
+                            LIMIT 10
+                        """, (customer_id,))
+                        
+                        analysis = cursor.fetchall()
+                        
+                        # Prepare all relevant data for AI prediction
+                        prediction_data = {
+                            "customer": {
+                                "id": customer_data[0],
+                                "name": customer_data[1],
+                                "company": customer_data[2],
+                                "lifetime_value": float(customer_data[3]),
+                                "engagement_score": float(customer_data[4]),
+                                "churn_risk_score": float(customer_data[5]),
+                                "support_tickets": customer_data[6],
+                                "last_activity": customer_data[7].isoformat() if customer_data[7] else None,
+                                "segment": customer_data[8],
+                                "current_insights": customer_data[9]
+                            },
+                            "contracts": [{"id": c[0], "type": c[1], "value": float(c[2]), 
+                                         "renewal_prob": float(c[3]), "performance": float(c[4]), 
+                                         "satisfaction": float(c[5])} for c in contracts],
+                            "recent_analysis": [{"metric": a[0], "value": float(a[1]), 
+                                               "trend": a[2], "risk": a[3]} for a in analysis]
+                        }
+                    else:
+                        # Analyze all customers for churn risk
+                        cursor.execute("""
+                            SELECT 
+                                customer_id, name, company, lifetime_value, engagement_score,
+                                churn_risk_score, support_tickets_count, customer_segment
+                            FROM customers
+                            WHERE status = 'active'
+                            ORDER BY churn_risk_score DESC
+                            LIMIT 20
+                        """)
+                        
+                        high_risk_customers = cursor.fetchall()
+                        
+                        # Prepare data for AI prediction
+                        prediction_data = {
+                            "high_risk_customers": [{"id": c[0], "name": c[1], "company": c[2], 
+                                                   "lifetime_value": float(c[3]), "engagement": float(c[4]),
+                                                   "churn_risk": float(c[5]), "support_tickets": c[6],
+                                                   "segment": c[7]} for c in high_risk_customers]
+                        }
             
             
             # Generate AI predictions using the helper method
@@ -191,45 +191,45 @@ class PredictiveAnalyzer:
         try:
             with get_connection_context() as conn:
                 with conn.cursor() as cursor:
-                # Get historical revenue data for the last 12 months
-                cursor.execute("""
-                    SELECT 
-                        DATE_TRUNC('month', analysis_date) as month,
-                        SUM(CASE WHEN metric_name LIKE '%Revenue%' THEN metric_value ELSE 0 END) as revenue,
-                        COUNT(DISTINCT customer_id) as active_customers
-                    FROM analysis
-                    WHERE analysis_date >= DATEADD(month, -12, CURRENT_DATE)
-                    GROUP BY DATE_TRUNC('month', analysis_date)
-                    ORDER BY month
-                """)
-                
-                historical_data = cursor.fetchall()
-                
-                # Get contract renewal data for active contracts
-                cursor.execute("""
-                    SELECT 
-                        renewal_probability,
-                        contract_value,
-                        end_date
-                    FROM contracts
-                    WHERE status = 'active' AND end_date >= CURRENT_DATE
-                    ORDER BY end_date
-                """)
-                
-                renewal_data = cursor.fetchall()
-                
-                # Get customer growth trends by segment
-                cursor.execute("""
-                    SELECT 
-                        customer_segment,
-                        COUNT(*) as count,
-                        AVG(lifetime_value) as avg_value
-                    FROM customers
-                    WHERE status = 'active'
-                    GROUP BY customer_segment
-                """)
-                
-                segment_data = cursor.fetchall()
+                    # Get historical revenue data for the last 12 months
+                    cursor.execute("""
+                        SELECT 
+                            DATE_TRUNC('month', analysis_date) as month,
+                            SUM(CASE WHEN metric_name LIKE '%Revenue%' THEN metric_value ELSE 0 END) as revenue,
+                            COUNT(DISTINCT customer_id) as active_customers
+                        FROM analysis
+                        WHERE analysis_date >= DATEADD(month, -12, CURRENT_DATE)
+                        GROUP BY DATE_TRUNC('month', analysis_date)
+                        ORDER BY month
+                    """)
+                    
+                    historical_data = cursor.fetchall()
+                    
+                    # Get contract renewal data for active contracts
+                    cursor.execute("""
+                        SELECT 
+                            renewal_probability,
+                            contract_value,
+                            end_date
+                        FROM contracts
+                        WHERE status = 'active' AND end_date >= CURRENT_DATE
+                        ORDER BY end_date
+                    """)
+                    
+                    renewal_data = cursor.fetchall()
+                    
+                    # Get customer growth trends by segment
+                    cursor.execute("""
+                        SELECT 
+                            customer_segment,
+                            COUNT(*) as count,
+                            AVG(lifetime_value) as avg_value
+                        FROM customers
+                        WHERE status = 'active'
+                        GROUP BY customer_segment
+                    """)
+                    
+                    segment_data = cursor.fetchall()
             
             
             # Prepare all relevant data for AI forecast
@@ -301,42 +301,42 @@ class PredictiveAnalyzer:
         try:
             with get_connection_context() as conn:
                 with conn.cursor() as cursor:
-                # Get customer data by ID
-                cursor.execute("""
-                    SELECT 
-                        name, company, lifetime_value, engagement_score, growth_potential_score,
-                        total_spend, monthly_recurring_revenue, customer_segment
-                    FROM customers
-                    WHERE customer_id = %s
-                """, (customer_id,))
-                
-                customer = cursor.fetchone()
-                if not customer:
-                    return {"error": "Customer not found"}
-                
-                # Get customer's spending history (revenue metrics)
-                cursor.execute("""
-                    SELECT 
-                        metric_name, metric_value, analysis_date, trend_direction
-                    FROM analysis
-                    WHERE customer_id = %s AND metric_name LIKE '%Revenue%'
-                    ORDER BY analysis_date DESC
-                    LIMIT 20
-                """, (customer_id,))
-                
-                revenue_history = cursor.fetchall()
-                
-                # Get similar customers for comparison
-                cursor.execute("""
-                    SELECT 
-                        customer_id, name, company, lifetime_value, engagement_score
-                    FROM customers
-                    WHERE customer_segment = %s AND status = 'active'
-                    ORDER BY lifetime_value DESC
-                    LIMIT 10
-                """, (customer[7],))  # customer_segment
-                
-                similar_customers = cursor.fetchall()
+                    # Get customer data by ID
+                    cursor.execute("""
+                        SELECT 
+                            name, company, lifetime_value, engagement_score, growth_potential_score,
+                            total_spend, monthly_recurring_revenue, customer_segment
+                        FROM customers
+                        WHERE customer_id = %s
+                    """, (customer_id,))
+                    
+                    customer = cursor.fetchone()
+                    if not customer:
+                        return {"error": "Customer not found"}
+                    
+                    # Get customer's spending history (revenue metrics)
+                    cursor.execute("""
+                        SELECT 
+                            metric_name, metric_value, analysis_date, trend_direction
+                        FROM analysis
+                        WHERE customer_id = %s AND metric_name LIKE '%Revenue%'
+                        ORDER BY analysis_date DESC
+                        LIMIT 20
+                    """, (customer_id,))
+                    
+                    revenue_history = cursor.fetchall()
+                    
+                    # Get similar customers for comparison
+                    cursor.execute("""
+                        SELECT 
+                            customer_id, name, company, lifetime_value, engagement_score
+                        FROM customers
+                        WHERE customer_segment = %s AND status = 'active'
+                        ORDER BY lifetime_value DESC
+                        LIMIT 10
+                    """, (customer[7],))  # customer_segment
+                    
+                    similar_customers = cursor.fetchall()
             
             
             # Prepare all relevant data for AI prediction
