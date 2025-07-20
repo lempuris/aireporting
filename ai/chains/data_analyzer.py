@@ -45,7 +45,8 @@ class DataAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get customer health metrics from the database
                     cursor.execute("""
                         SELECT 
@@ -84,6 +85,8 @@ class DataAnalyzer:
                     """)
                     
                     industries = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             # Prepare data for AI analysis
             analysis_data = {
@@ -121,7 +124,8 @@ class DataAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get contract metrics from the database
                     cursor.execute("""
                         SELECT 
@@ -156,10 +160,12 @@ class DataAnalyzer:
                         SELECT COUNT(*) as expiring_soon
                         FROM contracts
                         WHERE status = 'active' 
-                        AND end_date BETWEEN CURRENT_DATE AND DATEADD(day, 90, CURRENT_DATE)
+                        AND end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '90 days'
                     """)
                     
                     expiring = cursor.fetchone()
+                finally:
+                    cursor.close()
             
             # Prepare data for AI analysis
             analysis_data = {
@@ -198,7 +204,8 @@ class DataAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get recent analysis data from the database
                     cursor.execute("""
                         SELECT 
@@ -210,7 +217,7 @@ class DataAnalyzer:
                             COUNT(CASE WHEN trend_direction = 'decreasing' THEN 1 END) as decreasing_trends,
                             AVG(confidence_score) as avg_confidence
                         FROM analysis
-                        WHERE analysis_date >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE analysis_date >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY metric_category, metric_name
                         ORDER BY avg_change DESC
                     """)
@@ -224,12 +231,14 @@ class DataAnalyzer:
                             COUNT(*) as count,
                             AVG(confidence_score) as avg_confidence
                         FROM analysis
-                        WHERE analysis_date >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE analysis_date >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY risk_level
                         ORDER BY count DESC
                     """)
                     
                     risks = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             analysis_data = {
                 "metrics": [{"category": m[0], "name": m[1], "avg_value": float(m[2]) if m[2] else 0, "avg_change": float(m[3]) if m[3] else 0, 
@@ -258,20 +267,38 @@ class DataAnalyzer:
             return ["AI insights not available - OpenAI API key required"]
         
         try:
-            # Use optimized prompt template
-            prompt = prompt_templates.get_customer_analysis_prompt(
-                data=data,
-                insight_count=4,
-                focus_areas=["retention", "revenue", "risk", "growth"]
-            )
+            # Create a simple prompt to avoid formatting issues
+            prompt = f"""
+            Analyze the following customer health data and provide 4 actionable insights:
+            
+            Customer Metrics:
+            - Total customers: {data.get('total_customers', 0)}
+            - High-risk customers: {data.get('high_risk_customers', 0)}
+            - Average lifetime value: ${data.get('avg_lifetime_value', 0):,.0f}
+            - Average engagement: {data.get('avg_engagement', 0):.1f}
+            - High-value customers: {data.get('high_value_customers', 0)}
+            - Average support tickets: {data.get('avg_support_tickets', 0):.1f}
+            
+            Customer Segments: {len(data.get('segments', []))} segments
+            Top Industries: {len(data.get('top_industries', []))} industries
+            
+            Provide 4 specific, actionable insights focusing on:
+            1. Customer retention and churn prevention
+            2. Revenue optimization opportunities
+            3. Risk management strategies
+            4. Growth and expansion recommendations
+            
+            Format as a numbered list with clear, actionable recommendations.
+            """
             
             response = self.insight_llm.invoke([HumanMessage(content=prompt)])
             content = str(response.content) if hasattr(response, 'content') else str(response)
-            return content.split('\n')
+            insights = [line.strip() for line in content.split('\n') if line.strip() and not line.strip().startswith('#')]
+            return insights[:5]  # Return up to 5 insights
             
         except Exception as e:
             logger.error(f"Error generating customer insights: {e}")
-            return [f"Error generating insights: {str(e)}"]
+            return ["Error generating AI insights"]
     
     def _generate_contract_insights(self, data: Dict[str, Any]) -> List[str]:
         """
@@ -282,19 +309,38 @@ class DataAnalyzer:
             return ["AI insights not available - OpenAI API key required"]
         
         try:
-            # Use optimized prompt template
-            prompt = prompt_templates.get_contract_analysis_prompt(
-                data=data,
-                insight_count=4
-            )
+            # Create a simple prompt to avoid formatting issues
+            prompt = f"""
+            Analyze the following contract performance data and provide 4 actionable insights:
+            
+            Contract Metrics:
+            - Total contracts: {data.get('total_contracts', 0)}
+            - Average contract value: ${data.get('avg_contract_value', 0):,.0f}
+            - Total contract value: ${data.get('total_contract_value', 0):,.0f}
+            - Average renewal probability: {data.get('avg_renewal_probability', 0):.1%}
+            - Low renewal risk contracts: {data.get('low_renewal_risk', 0)}
+            - High renewal confidence: {data.get('high_renewal_confidence', 0)}
+            - Contracts expiring soon: {data.get('expiring_soon', 0)}
+            
+            Contract Types: {len(data.get('contract_types', []))} types
+            
+            Provide 4 specific, actionable insights focusing on:
+            1. Contract renewal strategies and risk mitigation
+            2. Revenue optimization and value maximization
+            3. Performance improvement opportunities
+            4. Customer retention through contract management
+            
+            Format as a numbered list with clear, actionable recommendations.
+            """
             
             response = self.insight_llm.invoke([HumanMessage(content=prompt)])
             content = str(response.content) if hasattr(response, 'content') else str(response)
-            return content.split('\n')
+            insights = [line.strip() for line in content.split('\n') if line.strip() and not line.strip().startswith('#')]
+            return insights[:5]  # Return up to 5 insights
             
         except Exception as e:
             logger.error(f"Error generating contract insights: {e}")
-            return [f"Error generating insights: {str(e)}"]
+            return ["Error generating AI insights"]
     
     def _generate_business_insights(self, data: Dict[str, Any]) -> List[str]:
         """
@@ -305,31 +351,39 @@ class DataAnalyzer:
             return ["AI insights not available - OpenAI API key required"]
         
         try:
+            # Count trends
+            increasing_trends = sum(1 for m in data.get('metrics', []) if m.get('increasing', 0) > 0)
+            decreasing_trends = sum(1 for m in data.get('metrics', []) if m.get('decreasing', 0) > 0)
+            
             prompt = f"""
-            Analyze the following business metrics and provide 3-5 key insights:
+            Analyze the following business metrics and provide 4 strategic insights:
             
-            Recent Metrics (Last 30 Days):
-            {json.dumps(data['metrics'], indent=2)}
+            Business Metrics Overview:
+            - Total metrics tracked: {len(data.get('metrics', []))}
+            - Increasing trends: {increasing_trends}
+            - Decreasing trends: {decreasing_trends}
+            - Risk levels: {len(data.get('risks', []))}
             
-            Risk Analysis:
-            {json.dumps(data['risks'], indent=2)}
+            Top Metrics: {len(data.get('metrics', [])[:3])} key metrics analyzed
+            Risk Analysis: {len(data.get('risks', []))} risk categories
             
-            Provide actionable insights focusing on:
-            1. Performance trends and opportunities
-            2. Risk management recommendations
-            3. Strategic priorities based on metrics
-            4. Areas requiring immediate attention
+            Provide 4 specific, actionable insights focusing on:
+            1. Performance trends and growth opportunities
+            2. Risk management and mitigation strategies
+            3. Strategic priorities and resource allocation
+            4. Areas requiring immediate attention and action
             
-            Format as a numbered list of clear, actionable insights.
+            Format as a numbered list with clear, actionable recommendations.
             """
             
             response = self.insight_llm.invoke([HumanMessage(content=prompt)])
             content = str(response.content) if hasattr(response, 'content') else str(response)
-            return content.split('\n')
+            insights = [line.strip() for line in content.split('\n') if line.strip() and not line.strip().startswith('#')]
+            return insights[:5]  # Return up to 5 insights
             
         except Exception as e:
             logger.error(f"Error generating business insights: {e}")
-            return [f"Error generating insights: {str(e)}"]
+            return ["Error generating AI insights"]
 
 # Global analyzer instance
 data_analyzer = DataAnalyzer() 

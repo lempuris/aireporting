@@ -3,7 +3,11 @@
     "allow": [
       "Bash(python:*)",
       "Bash(git add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(/dev/null)"
     ],
     "deny": []
   }

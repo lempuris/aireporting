@@ -2,19 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme CSS Variables */
+:root {
+  /* Light Theme (Default) */
+  --color-bg-primary: 255 255 255;
+  --color-bg-secondary: 249 250 251;
+  --color-bg-tertiary: 243 244 246;
+  --color-text-primary: 17 24 39;
+  --color-text-secondary: 107 114 128;
+  --color-text-tertiary: 156 163 175;
+  --color-border: 229 231 235;
+  --color-border-secondary: 209 213 219;
+  --color-primary: 59 130 246;
+  --color-success: 16 185 129;
+  --color-warning: 245 158 11;
+  --color-danger: 239 68 68;
+}
+
+/* Dark Theme */
+.dark {
+  --color-bg-primary: 17 24 39;
+  --color-bg-secondary: 31 41 55;
+  --color-bg-tertiary: 55 65 81;
+  --color-text-primary: 243 244 246;
+  --color-text-secondary: 156 163 175;
+  --color-text-tertiary: 107 114 128;
+  --color-border: 75 85 99;
+  --color-border-secondary: 55 65 81;
+  --color-primary: 96 165 250;
+  --color-success: 52 211 153;
+  --color-warning: 251 191 36;
+  --color-danger: 248 113 113;
+}
+
+/* Blue Night Theme */
+.theme-blue-night {
+  --color-bg-primary: 15 23 42;
+  --color-bg-secondary: 30 41 59;
+  --color-bg-tertiary: 51 65 85;
+  --color-text-primary: 226 232 240;
+  --color-text-secondary: 148 163 184;
+  --color-text-tertiary: 100 116 139;
+  --color-border: 51 65 85;
+  --color-border-secondary: 71 85 105;
+  --color-primary: 59 130 246;
+  --color-success: 16 185 129;
+  --color-warning: 245 158 11;
+  --color-danger: 239 68 68;
+}
+
+/* Sunset Theme */
+.theme-sunset {
+  --color-bg-primary: 255 251 235;
+  --color-bg-secondary: 254 243 199;
+  --color-bg-tertiary: 253 230 138;
+  --color-text-primary: 120 53 15;
+  --color-text-secondary: 146 64 14;
+  --color-text-tertiary: 180 83 9;
+  --color-border: 251 191 36;
+  --color-border-secondary: 245 158 11;
+  --color-primary: 245 101 101;
+  --color-success: 16 185 129;
+  --color-warning: 245 158 11;
+  --color-danger: 239 68 68;
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
   }
   
   body {
-    @apply bg-gray-50 text-gray-900;
+    background-color: rgb(var(--color-bg-primary));
+    color: rgb(var(--color-text-primary));
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    @apply rounded-lg shadow-sm border p-6;
+    background-color: rgb(var(--color-bg-secondary));
+    border-color: rgb(var(--color-border));
+    color: rgb(var(--color-text-primary));
   }
   
   .card-hover {
@@ -22,27 +92,52 @@
   }
   
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    background-color: rgb(var(--color-primary));
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    opacity: 0.9;
   }
   
   .btn-secondary {
-    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    background-color: rgb(var(--color-bg-tertiary));
+    color: rgb(var(--color-text-primary));
+    border: 1px solid rgb(var(--color-border));
+  }
+  
+  .btn-secondary:hover {
+    background-color: rgb(var(--color-bg-secondary));
   }
   
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent;
+    background-color: rgb(var(--color-bg-secondary));
+    border-color: rgb(var(--color-border-secondary));
+    color: rgb(var(--color-text-primary));
+  }
+  
+  .input-field:focus {
+    border-color: rgb(var(--color-primary));
+    box-shadow: 0 0 0 2px rgb(var(--color-primary) / 0.2);
   }
   
   .metric-card {
-    @apply bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-sm border border-gray-200 p-6;
+    @apply rounded-xl shadow-sm border p-6;
+    background: linear-gradient(135deg, rgb(var(--color-bg-secondary)) 0%, rgb(var(--color-bg-tertiary)) 100%);
+    border-color: rgb(var(--color-border));
   }
   
   .metric-value {
-    @apply text-3xl font-bold text-gray-900;
+    @apply text-3xl font-bold;
+    color: rgb(var(--color-text-primary));
   }
   
   .metric-label {
-    @apply text-sm font-medium text-gray-600 uppercase tracking-wide;
+    @apply text-sm font-medium uppercase tracking-wide;
+    color: rgb(var(--color-text-secondary));
   }
   
   .metric-change {
@@ -50,33 +145,42 @@
   }
   
   .metric-change.positive {
-    @apply text-success-600;
+    color: rgb(var(--color-success));
   }
   
   .metric-change.negative {
-    @apply text-danger-600;
+    color: rgb(var(--color-danger));
   }
   
   .insight-card {
-    @apply bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4;
+    @apply border rounded-lg p-4;
+    background: linear-gradient(135deg, rgb(var(--color-primary) / 0.1) 0%, rgb(var(--color-primary) / 0.05) 100%);
+    border-color: rgb(var(--color-primary) / 0.3);
   }
   
   .risk-high {
-    @apply text-danger-600 bg-danger-50 border-danger-200;
+    color: rgb(var(--color-danger));
+    background-color: rgb(var(--color-danger) / 0.1);
+    border-color: rgb(var(--color-danger) / 0.3);
   }
   
   .risk-medium {
-    @apply text-warning-600 bg-warning-50 border-warning-200;
+    color: rgb(var(--color-warning));
+    background-color: rgb(var(--color-warning) / 0.1);
+    border-color: rgb(var(--color-warning) / 0.3);
   }
   
   .risk-low {
-    @apply text-success-600 bg-success-50 border-success-200;
+    color: rgb(var(--color-success));
+    background-color: rgb(var(--color-success) / 0.1);
+    border-color: rgb(var(--color-success) / 0.3);
   }
 }
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-primary) / 0.8) 100%);
   }
   
   .animate-fade-in {

@@ -1,35 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, 
-  TrendingUp, 
-  AlertTriangle, 
-  DollarSign,
+  DollarSign, 
   Activity,
-  RefreshCw,
+  AlertTriangle,
   Search,
+  RefreshCw,
   Database
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import MetricCard from '../components/MetricCard';
 import InsightCard from '../components/InsightCard';
 import CacheManager from '../components/CacheManager';
 import { getCustomerHealth, getCustomers, getCacheStats } from '../services/cachedApi';
 
 const CustomerAnalysis = () => {
-  const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSegment, setSelectedSegment] = useState('all');
   const [cacheStats, setCacheStats] = useState(null);
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [showCacheManager, setShowCacheManager] = useState(false);
 
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+  // Dynamic chart colors that adapt to theme
+  const getChartColor = useCallback(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    return isDark ? '#e5e7eb' : '#374151';
+  }, []);
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setIsUsingCache(false);
@@ -66,37 +69,44 @@ const CustomerAnalysis = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.company.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSegment = selectedSegment === 'all' || customer.segment === selectedSegment;
-    return matchesSearch && matchesSegment;
-  });
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(customer => {
+      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           customer.company.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSegment = selectedSegment === 'all' || customer.segment === selectedSegment;
+      return matchesSearch && matchesSegment;
+    });
+  }, [customers, searchTerm, selectedSegment]);
 
-  const segmentData = data?.metrics?.segments?.map((segment, index) => ({
-    name: segment.segment,
-    value: segment.count,
-    color: COLORS[index % COLORS.length]
-  })) || [];
+  const segmentData = useMemo(() => {
+    const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+    return data?.metrics?.segments?.map((segment, index) => ({
+      name: segment.segment,
+      value: segment.count,
+      color: COLORS[index % COLORS.length]
+    })) || [];
+  }, [data?.metrics?.segments]);
 
-  const industryData = data?.metrics?.top_industries?.map((industry, index) => ({
-    name: industry.industry,
-    customers: industry.count,
-    avgValue: industry.avg_value
-  })) || [];
+  const industryData = useMemo(() => {
+    return data?.metrics?.top_industries?.map((industry, index) => ({
+      name: industry.industry,
+      customers: industry.count,
+      avgValue: industry.avg_value
+    })) || [];
+  }, [data?.metrics?.top_industries]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading customer analysis...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4" style={{ color: 'rgb(var(--color-text-secondary))' }}>Loading customer analysis...</p>
         </div>
       </div>
     );
@@ -107,12 +117,12 @@ const CustomerAnalysis = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customer Analysis</h1>
-          <p className="text-gray-600">Customer health, engagement, and risk assessment</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'rgb(var(--color-text-primary))' }}>Customer Analysis</h1>
+          <p style={{ color: 'rgb(var(--color-text-secondary))' }}>Customer health, engagement, and risk assessment</p>
         </div>
         <div className="flex items-center space-x-4">
           {isUsingCache && (
-            <div className="flex items-center space-x-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+            <div className="flex items-center space-x-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 px-3 py-1 rounded-full">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span>Cached</span>
             </div>
@@ -120,7 +130,8 @@ const CustomerAnalysis = () => {
           {cacheStats && (
             <button
               onClick={() => setShowCacheManager(true)}
-              className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="flex items-center space-x-2 text-sm transition-colors hover:opacity-80"
+              style={{ color: 'rgb(var(--color-text-secondary))' }}
             >
               <Database className="h-4 w-4" />
               <span>Cache: {cacheStats.size}/{cacheStats.maxSize}</span>
@@ -174,7 +185,7 @@ const CustomerAnalysis = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Segments</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Customer Segments</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -191,7 +202,14 @@ const CustomerAnalysis = () => {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                  border: '1px solid rgb(var(--color-border))',
+                  borderRadius: '0.5rem'
+                }}
+                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </motion.div>
@@ -202,13 +220,20 @@ const CustomerAnalysis = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Industries by Customer Count</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Top Industries by Customer Count</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={industryData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+              <XAxis dataKey="name" stroke={getChartColor()} />
+              <YAxis stroke={getChartColor()} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                  border: '1px solid rgb(var(--color-border))',
+                  borderRadius: '0.5rem'
+                }}
+                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              />
               <Bar dataKey="customers" fill="#3B82F6" />
             </BarChart>
           </ResponsiveContainer>
@@ -221,7 +246,7 @@ const CustomerAnalysis = () => {
         animate={{ opacity: 1, y: 0 }}
         className="card"
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">AI-Generated Customer Insights</h3>
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>AI-Generated Customer Insights</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {data?.insights?.map((insight, index) => (
             <InsightCard
@@ -242,91 +267,101 @@ const CustomerAnalysis = () => {
         className="card"
       >
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Customer List</h3>
+          <h3 className="text-lg font-semibold" style={{ color: 'rgb(var(--color-text-primary))' }}>Customer List</h3>
           <div className="flex items-center space-x-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: 'rgb(var(--color-text-tertiary))' }} />
               <input
                 type="text"
                 placeholder="Search customers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+                style={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))',
+                  borderColor: 'rgb(var(--color-border-secondary))',
+                  color: 'rgb(var(--color-text-primary))'
+                }}
               />
             </div>
             <select
               value={selectedSegment}
               onChange={(e) => setSelectedSegment(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+              style={{ 
+                backgroundColor: 'rgb(var(--color-bg-secondary))',
+                borderColor: 'rgb(var(--color-border-secondary))',
+                color: 'rgb(var(--color-text-primary))'
+              }}
             >
               <option value="all">All Segments</option>
               <option value="enterprise">Enterprise</option>
               <option value="professional">Professional</option>
-              <option value="standard">Standard</option>
+              <option value="basic">Basic</option>
             </select>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y" style={{ borderColor: 'rgb(var(--color-border))' }}>
+            <thead style={{ backgroundColor: 'rgb(var(--color-bg-tertiary))' }}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Segment
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   LTV
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Engagement
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Churn Risk
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody style={{ backgroundColor: 'rgb(var(--color-bg-secondary))' }} className="divide-y">
               {filteredCustomers.slice(0, 10).map((customer) => (
-                <tr key={customer.customer_id} className="hover:bg-gray-50">
+                <tr key={customer.customer_id} className="hover:opacity-80 transition-opacity" style={{ borderColor: 'rgb(var(--color-border))' }}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                      <div className="text-sm text-gray-500">{customer.company}</div>
+                      <div className="text-sm font-medium" style={{ color: 'rgb(var(--color-text-primary))' }}>{customer.name}</div>
+                      <div className="text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>{customer.company}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      customer.segment === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                      customer.segment === 'professional' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
+                      customer.segment === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-opacity-30 dark:text-purple-300' :
+                      customer.segment === 'professional' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:bg-opacity-30 dark:text-blue-300' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:bg-opacity-30 dark:text-gray-300'
                     }`}>
                       {customer.segment}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
                     ${customer.lifetime_value?.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                      <div className="w-16 rounded-full h-2 mr-2" style={{ backgroundColor: 'rgb(var(--color-border))' }}>
                         <div 
                           className="bg-primary-600 h-2 rounded-full" 
                           style={{ width: `${customer.engagement_score * 100}%` }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
                         {(customer.engagement_score * 100).toFixed(0)}%
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      customer.churn_risk_score > 0.7 ? 'bg-danger-100 text-danger-800' :
-                      customer.churn_risk_score > 0.4 ? 'bg-warning-100 text-warning-800' :
-                      'bg-success-100 text-success-800'
+                      customer.churn_risk_score > 0.7 ? 'bg-danger-100 text-danger-800 dark:bg-danger-900 dark:bg-opacity-30 dark:text-danger-300' :
+                      customer.churn_risk_score > 0.4 ? 'bg-warning-100 text-warning-800 dark:bg-warning-900 dark:bg-opacity-30 dark:text-warning-300' :
+                      'bg-success-100 text-success-800 dark:bg-success-900 dark:bg-opacity-30 dark:text-success-300'
                     }`}>
                       {(customer.churn_risk_score * 100).toFixed(0)}%
                     </span>

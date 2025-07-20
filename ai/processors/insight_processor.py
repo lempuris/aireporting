@@ -11,6 +11,7 @@ from config.settings import settings
 from ai.models.llm_config import llm_config
 from ai.chains.data_analyzer import data_analyzer
 from langchain.schema import HumanMessage
+from database import get_connection_context
 
 logger = logging.getLogger(__name__)
 
@@ -35,91 +36,105 @@ class InsightProcessor:
         logger.info("Updating customer insights...")
         
         try:
-            conn = self.get_connection()
-            updated_count = 0
-            
-            with conn.cursor() as cursor:
-                # Get customers without recent insights or with high churn risk
-                cursor.execute("""
-                    SELECT 
-                        customer_id, name, company, lifetime_value, engagement_score,
-                        churn_risk_score, support_tickets_count, customer_segment,
-                        ai_insights, updated_at
-                    FROM customers
-                    WHERE status = 'active'
-                    AND (ai_insights IS NULL 
-                         OR updated_at < DATEADD(day, -7, CURRENT_DATE)
-                         OR churn_risk_score > 0.7)
-                    ORDER BY churn_risk_score DESC
-                    LIMIT 50
-                """)
-                
-                customers = cursor.fetchall()
-                
-                for customer in customers:
-                    # Generate new insights for each customer
-                    insight = self._generate_customer_insight(customer)
+            with get_connection_context() as conn:
+                cursor = conn.cursor()
+                try:
+                    # Get customers that need insights update
+                    cursor.execute("""
+                        SELECT customer_id, name, company, lifetime_value, engagement_score,
+                               churn_risk_score, support_tickets_count, customer_segment
+                        FROM customers
+                        WHERE status = 'active'
+                        AND (ai_insights IS NULL 
+                             OR ai_insights = ''
+                             OR updated_at IS NULL
+                             OR updated_at < CURRENT_DATE - INTERVAL '7 days')
+                        ORDER BY churn_risk_score DESC
+                        LIMIT 50
+                    """)
                     
-                    if insight:
-                        cursor.execute("""
-                            UPDATE customers 
-                            SET ai_insights = %s, updated_at = CURRENT_TIMESTAMP
-                            WHERE customer_id = %s
-                        """, (insight, customer[0]))
-                        updated_count += 1
-            
-            conn.commit()
-            conn.close()
-            
-            logger.info(f"Updated insights for {updated_count} customers")
-            return {"updated_count": updated_count, "status": "success"}
-            
+                    customers = cursor.fetchall()
+                    
+                    if not customers:
+                        logger.info("No customers need insights update")
+                        return {"message": "No customers need insights update"}
+                    
+                    # Process each customer
+                    updated_count = 0
+                    for customer in customers:
+                        try:
+                            # Generate insights for customer
+                            insights = self._generate_customer_insight(customer)
+                            
+                            # Update customer record
+                            cursor.execute("""
+                                UPDATE customers 
+                                SET ai_insights = %s, updated_at = CURRENT_TIMESTAMP
+                                WHERE customer_id = %s
+                            """, (insights, customer[0]))
+                            
+                            updated_count += 1
+                            
+                        except Exception as e:
+                            logger.error(f"Error updating insights for customer {customer[0]}: {e}")
+                            continue
+                
+                    conn.commit()
+                    logger.info(f"Updated insights for {updated_count} customers")
+                    
+                    return {
+                        "message": f"Updated insights for {updated_count} customers",
+                        "updated_count": updated_count
+                    }
+                finally:
+                    cursor.close()
+                
         except Exception as e:
             logger.error(f"Error updating customer insights: {e}")
             return {"error": str(e)}
     
     def update_contract_insights(self) -> Dict[str, Any]:
-        """Update AI insights for contracts."""
+        """Update AI insights for contracts that need refreshing."""
         logger.info("Updating contract insights...")
         
         try:
-            conn = self.get_connection()
-            updated_count = 0
-            
-            with conn.cursor() as cursor:
-                # Get contracts needing insight updates
-                cursor.execute("""
-                    SELECT 
-                        c.contract_id, c.contract_type, c.contract_value, c.renewal_probability,
-                        c.legal_risk_score, c.performance_score, c.satisfaction_score,
-                        c.ai_analysis, c.updated_at,
-                        cust.name, cust.company, cust.customer_segment
-                    FROM contracts c
-                    JOIN customers cust ON c.customer_id = cust.customer_id
-                    WHERE c.status = 'active'
-                    AND (c.ai_analysis IS NULL 
-                         OR c.updated_at < DATEADD(day, -7, CURRENT_DATE)
-                         OR c.renewal_probability < 0.4)
-                    ORDER BY c.renewal_probability ASC
-                    LIMIT 30
-                """)
-                
-                contracts = cursor.fetchall()
-                
-                for contract in contracts:
-                    # Generate new insights for each contract
-                    insight = self._generate_contract_insight(contract)
+            with get_connection_context() as conn:
+                cursor = conn.cursor()
+                try:
+                    # Get contracts that need insights update
+                    cursor.execute("""
+                        SELECT c.contract_id, c.contract_type, c.contract_value,
+                               c.renewal_probability, c.performance_score, c.satisfaction_score,
+                               cust.name, cust.company
+                        FROM contracts c
+                        JOIN customers cust ON c.customer_id = cust.customer_id
+                        WHERE c.status = 'active'
+                        AND (c.ai_analysis IS NULL 
+                             OR c.ai_analysis = ''
+                             OR c.updated_at IS NULL
+                             OR c.updated_at < CURRENT_DATE - INTERVAL '7 days')
+                        ORDER BY c.renewal_probability ASC
+                        LIMIT 50
+                    """)
                     
-                    if insight:
-                        cursor.execute("""
-                            UPDATE contracts 
-                            SET ai_analysis = %s, updated_at = CURRENT_TIMESTAMP
-                            WHERE contract_id = %s
-                        """, (insight, contract[0]))
-                        updated_count += 1
-            
-            conn.commit()
-            conn.close()
+                    contracts = cursor.fetchall()
+                    
+                    updated_count = 0
+                    for contract in contracts:
+                        # Generate new insights for each contract
+                        insight = self._generate_contract_insight(contract)
+                        
+                        if insight:
+                            cursor.execute("""
+                                UPDATE contracts 
+                                SET ai_analysis = %s, updated_at = CURRENT_TIMESTAMP
+                                WHERE contract_id = %s
+                            """, (insight, contract[0]))
+                            updated_count += 1
+                    
+                    conn.commit()
+                finally:
+                    cursor.close()
             
             logger.info(f"Updated insights for {updated_count} contracts")
             return {"updated_count": updated_count, "status": "success"}
@@ -146,29 +161,30 @@ class InsightProcessor:
             })
             
             # Store daily insights
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO analysis (
-                        analysis_id, metric_name, metric_value, metric_unit, metric_category,
-                        analysis_date, ai_insights, analysis_type, data_source
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )
-                """, (
-                    f"DAILY_{datetime.now().strftime('%Y%m%d')}",
-                    "Daily Business Insights",
-                    1.0,
-                    "summary",
-                    "Executive",
-                    datetime.now(),
-                    daily_summary,
-                    "batch",
-                    "ai_generated"
-                ))
-            
-            conn.commit()
-            conn.close()
+            with get_connection_context() as conn:
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("""
+                        INSERT INTO analysis (
+                            analysis_id, metric_name, metric_value, metric_unit, metric_category,
+                            analysis_date, ai_insights, analysis_type, data_source
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        )
+                    """, (
+                        f"DAILY_{datetime.now().strftime('%Y%m%d')}",
+                        "Daily Business Insights",
+                        1.0,
+                        "summary",
+                        "Executive",
+                        datetime.now(),
+                        daily_summary,
+                        "batch",
+                        "ai_generated"
+                    ))
+                    conn.commit()
+                finally:
+                    cursor.close()
             
             return {
                 "summary": daily_summary,

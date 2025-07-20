@@ -46,7 +46,8 @@ class PredictiveAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     if customer_id:
                         # Analyze a specific customer by ID
                         cursor.execute("""
@@ -124,6 +125,8 @@ class PredictiveAnalyzer:
                                                    "churn_risk": float(c[5]), "support_tickets": c[6],
                                                    "segment": c[7]} for c in high_risk_customers]
                         }
+                finally:
+                    cursor.close()
             
             
             # Generate AI predictions using the helper method
@@ -190,7 +193,8 @@ class PredictiveAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get historical revenue data for the last 12 months
                     cursor.execute("""
                         SELECT 
@@ -198,7 +202,7 @@ class PredictiveAnalyzer:
                             SUM(CASE WHEN metric_name LIKE '%Revenue%' THEN metric_value ELSE 0 END) as revenue,
                             COUNT(DISTINCT customer_id) as active_customers
                         FROM analysis
-                        WHERE analysis_date >= DATEADD(month, -12, CURRENT_DATE)
+                        WHERE analysis_date >= CURRENT_DATE - INTERVAL '12 months'
                         GROUP BY DATE_TRUNC('month', analysis_date)
                         ORDER BY month
                     """)
@@ -230,6 +234,8 @@ class PredictiveAnalyzer:
                     """)
                     
                     segment_data = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             
             # Prepare all relevant data for AI forecast
@@ -300,7 +306,8 @@ class PredictiveAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get customer data by ID
                     cursor.execute("""
                         SELECT 
@@ -337,6 +344,8 @@ class PredictiveAnalyzer:
                     """, (customer[7],))  # customer_segment
                     
                     similar_customers = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             
             # Prepare all relevant data for AI prediction

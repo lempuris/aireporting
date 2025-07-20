@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 class DatabaseConnectionPool:
     """Thread-safe database connection pool."""
     
-    def __init__(self, min_connections=1, max_connections=20):
+    def __init__(self, min_connections=2, max_connections=10):
         """
         Initialize the connection pool.
         
@@ -163,6 +163,7 @@ class DatabaseConnectionPool:
             close (bool): Whether to close the connection instead of returning it
         """
         if not self._initialized or not conn:
+            logger.warning(f"Cannot return connection: initialized={self._initialized}, conn={conn}")
             return
             
         try:
@@ -170,16 +171,19 @@ class DatabaseConnectionPool:
             if not close and not conn.closed:
                 # Rollback any pending transactions
                 if conn.status != psycopg2.extensions.STATUS_READY:
+                    logger.info("Rolling back transaction before returning connection")
                     conn.rollback()
             
             # Return connection to pool
+            logger.debug(f"Returning connection to pool (close={close})")
             self._pool.putconn(conn, close=close)
-            logger.debug(f"Connection returned to pool (closed={close})")
+            logger.debug(f"Connection returned to pool successfully (closed={close})")
             
         except Exception as e:
             logger.error(f"Failed to return connection to pool: {e}")
             try:
                 # Force close the connection if return fails
+                logger.warning("Force closing connection due to return failure")
                 conn.close()
             except:
                 pass
@@ -275,19 +279,20 @@ def get_connection_context(timeout=30):
         psycopg2.connection: Database connection
     """
     conn = None
+    connection_returned = False
     try:
         conn = get_connection(timeout=timeout)
         yield conn
     except Exception as e:
         logger.error(f"Database operation failed: {e}")
         # Return connection as failed
-        if conn:
+        if conn and not connection_returned:
             return_connection(conn, close=True)
-            conn = None
+            connection_returned = True
         raise
     finally:
-        # Always return connection to pool
-        if conn:
+        # Always return connection to pool if not already returned
+        if conn and not connection_returned:
             return_connection(conn)
 
 def close_all_connections():

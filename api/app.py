@@ -35,14 +35,150 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
+    # Test database connection
+    db_status = "healthy"
+    try:
+        with get_connection_context() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            finally:
+                cursor.close()
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        db_status = f"unhealthy: {str(e)}"
+    
     return jsonify({
-        'status': 'healthy',
+        'status': 'healthy' if db_status == "healthy" else 'degraded',
         'timestamp': datetime.now().isoformat(),
         'version': '1.0.0',
         'ai_enabled': bool(settings.OPENAI_API_KEY),
+        'database_status': db_status,
         'database_pool': get_pool_status(),
         'llm_cache': llm_config.get_cache_status()
     }), 200
+
+@app.route('/debug', methods=['GET'])
+def debug_endpoint():
+    """Debug endpoint to test cursor behavior."""
+    try:
+        logger.info("Debug endpoint called")
+        
+        # Test simple customer query like data endpoints
+        with get_connection_context() as conn:
+            logger.info("Got connection from pool")
+            cursor = conn.cursor()
+            logger.info("Created cursor")
+            try:
+                cursor.execute("SELECT customer_id, name FROM customers WHERE status = %s LIMIT %s", ['active', 1])
+                logger.info("Executed query")
+                result = cursor.fetchone()
+                logger.info(f"Fetched result: {result}")
+                
+                return jsonify({
+                    'success': True,
+                    'customer_id': result[0] if result else None,
+                    'name': result[1] if result else None
+                })
+                
+            except Exception as db_e:
+                logger.error(f"Database error: {db_e}")
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
+                return jsonify({'error': f'DB Error: {str(db_e)}'})
+            finally:
+                logger.info("Closing cursor")
+                cursor.close()
+                logger.info("Cursor closed")
+                
+    except Exception as e:
+        logger.error(f"Endpoint error: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'error': f'Error: {str(e)}'})
+
+@app.route('/debug-simple', methods=['GET'])
+def debug_simple():
+    """Simple debug endpoint."""
+    try:
+        with get_connection_context() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT 1 as test")
+                result = cursor.fetchone()
+                return f"Simple test: {result[0]}"
+            finally:
+                cursor.close()
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@app.route('/test-db', methods=['GET'])
+def test_db():
+    """Simple database test endpoint."""
+    try:
+        logger.info("Test DB endpoint called")
+        
+        # Test 1: Simple connection test
+        try:
+            with get_connection_context() as conn:
+                logger.info("Got connection from pool")
+                cursor = conn.cursor()
+                logger.info("Created cursor")
+                try:
+                    cursor.execute("SELECT 1")
+                    result = cursor.fetchone()
+                    logger.info(f"Simple test successful: {result}")
+                finally:
+                    cursor.close()
+                    logger.info("Cursor closed for simple test")
+        except Exception as e:
+            logger.error(f"Simple test failed: {e}")
+            return jsonify({'error': f'Simple test failed: {str(e)}'}), 500
+        
+        # Test 2: Customer query test  
+        try:
+            with get_connection_context() as conn:
+                logger.info("Got connection for customer test")
+                cursor = conn.cursor()
+                logger.info("Created cursor for customer test")
+                try:
+                    cursor.execute("SELECT customer_id, name FROM customers LIMIT 2")
+                    logger.info("Executed customer query")
+                    results = cursor.fetchall()
+                    logger.info(f"Fetched {len(results)} customer results")
+                    
+                    formatted_results = []
+                    for row in results:
+                        formatted_results.append({
+                            'customer_id': row[0],
+                            'name': row[1]
+                        })
+                    
+                    return jsonify({
+                        'success': True,
+                        'count': len(formatted_results),
+                        'data': formatted_results
+                    }), 200
+                    
+                except Exception as db_e:
+                    logger.error(f"Customer query error: {db_e}")
+                    return jsonify({'error': f'Customer query failed: {str(db_e)}'}), 500
+                finally:
+                    cursor.close()
+                    logger.info("Cursor closed for customer test")
+                    
+        except Exception as e:
+            logger.error(f"Customer test failed: {e}")
+            return jsonify({'error': f'Customer test failed: {str(e)}'}), 500
+                
+    except Exception as e:
+        logger.error(f"Test DB error: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({
+            'error': str(e)
+        }), 500
 
 @app.route('/api/v1/analysis/customer-health', methods=['GET'])
 def get_customer_health():
@@ -365,46 +501,11 @@ def get_comprehensive_analysis():
         # Get query parameter for AI insights (default to False to prevent timeouts)
         include_ai_insights = request.args.get('include_ai_insights', 'false').lower() == 'true'
         
-        # Get all analyses with cross-platform timeout protection
-        import threading
-        import time
-        
-        # Global variables for timeout handling
-        analysis_results = {}
-        analysis_complete = threading.Event()
-        
-        def run_analysis():
-            try:
-                analysis_results['customer'] = data_analyzer.analyze_customer_health(include_ai_insights=include_ai_insights)
-                analysis_results['contract'] = data_analyzer.analyze_contract_performance(include_ai_insights=include_ai_insights)
-                analysis_results['business'] = data_analyzer.analyze_business_metrics(include_ai_insights=include_ai_insights)
-                analysis_complete.set()
-            except Exception as e:
-                analysis_results['error'] = str(e)
-                analysis_complete.set()
-        
-        # Start analysis in a separate thread
-        analysis_thread = threading.Thread(target=run_analysis)
-        analysis_thread.daemon = True
-        analysis_thread.start()
-        
-        # Wait for completion with timeout (25 seconds)
-        if not analysis_complete.wait(timeout=25):
-            return jsonify({
-                'error': 'Analysis timed out. Try again or use include_ai_insights=false parameter.',
-                'timestamp': datetime.now().isoformat()
-            }), 408
-        
-        # Check for analysis errors
-        if 'error' in analysis_results:
-            return jsonify({
-                'error': analysis_results['error'],
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        customer_analysis = analysis_results['customer']
-        contract_analysis = analysis_results['contract']
-        business_analysis = analysis_results['business']
+        # Run analyses sequentially to avoid threading issues with database connections
+        # Each analyzer properly manages its own connections using get_connection_context()
+        customer_analysis = data_analyzer.analyze_customer_health(include_ai_insights=include_ai_insights)
+        contract_analysis = data_analyzer.analyze_contract_performance(include_ai_insights=include_ai_insights)
+        business_analysis = data_analyzer.analyze_business_metrics(include_ai_insights=include_ai_insights)
         
         # Check for errors
         if "error" in customer_analysis or "error" in contract_analysis or "error" in business_analysis:
@@ -459,37 +560,49 @@ def get_comprehensive_analysis():
 def get_customers():
     """Get customer data with optional filtering."""
     try:
-        
         # Get query parameters
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         segment = request.args.get('segment')
         status = request.args.get('status', 'active')
         
-        # Build query
-        query = """
-            SELECT customer_id, name, company, industry, customer_segment,
-                   lifetime_value, engagement_score, churn_risk_score,
-                   support_tickets_count, ai_insights, created_at
-            FROM customers
-            WHERE status = %s
-        """
-        params = [status]
+        # Use direct psycopg2 connection to avoid connection pool issues
+        import psycopg2
         
-        if segment:
-            query += " AND customer_segment = %s"
-            params.append(segment)
-        
-        query += " ORDER BY churn_risk_score DESC LIMIT %s OFFSET %s"
-        params.extend([str(limit), str(offset)])
-        
-        # Execute query using connection pool
-        with get_connection_context() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query, params)
-                customers = cursor.fetchall()
+        conn = None
+        try:
+            # Create direct connection
+            conn = psycopg2.connect(
+                host=settings.REDSHIFT_HOST,
+                port=settings.REDSHIFT_PORT,
+                database=settings.REDSHIFT_DATABASE,
+                user=settings.REDSHIFT_USERNAME,
+                password=settings.REDSHIFT_PASSWORD
+            )
             
-            # Get total count
+            cursor = conn.cursor()
+            
+            # Build and execute query
+            query = """
+                SELECT customer_id, name, company, industry, customer_segment,
+                       lifetime_value, engagement_score, churn_risk_score,
+                       support_tickets_count, ai_insights, created_at
+                FROM customers
+                WHERE status = %s
+            """
+            params = [status]
+            
+            if segment:
+                query += " AND customer_segment = %s"
+                params.append(segment)
+            
+            query += " ORDER BY churn_risk_score DESC LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            customers = cursor.fetchall()
+            
+            # Execute count query
             count_query = "SELECT COUNT(*) FROM customers WHERE status = %s"
             count_params = [status]
             if segment:
@@ -499,8 +612,18 @@ def get_customers():
             cursor.execute(count_query, count_params)
             result = cursor.fetchone()
             total_count = result[0] if result else 0
-        
-        conn.close()
+            
+            cursor.close()
+            
+        except Exception as db_error:
+            logger.error(f"Database error in get_customers: {db_error}")
+            return jsonify({
+                'error': 'Database connection error',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        finally:
+            if conn:
+                conn.close()
         
         # Format results
         customer_list = []
@@ -544,39 +667,51 @@ def get_customers():
 def get_contracts():
     """Get contract data with optional filtering."""
     try:
-        
         # Get query parameters
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         contract_type = request.args.get('contract_type')
         status = request.args.get('status', 'active')
         
-        # Build query
-        query = """
-            SELECT c.contract_id, c.contract_type, c.contract_value,
-                   c.renewal_probability, c.performance_score, c.satisfaction_score,
-                   c.ai_analysis, c.start_date, c.end_date,
-                   cust.name, cust.company
-            FROM contracts c
-            JOIN customers cust ON c.customer_id = cust.customer_id
-            WHERE c.status = %s
-        """
-        params = [status]
+        # Use direct psycopg2 connection to avoid connection pool issues
+        import psycopg2
         
-        if contract_type:
-            query += " AND c.contract_type = %s"
-            params.append(contract_type)
-        
-        query += " ORDER BY c.renewal_probability ASC LIMIT %s OFFSET %s"
-        params.extend([str(limit), str(offset)])
-        
-        # Execute query using connection pool
-        with get_connection_context() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query, params)
-                contracts = cursor.fetchall()
+        conn = None
+        try:
+            # Create direct connection
+            conn = psycopg2.connect(
+                host=settings.REDSHIFT_HOST,
+                port=settings.REDSHIFT_PORT,
+                database=settings.REDSHIFT_DATABASE,
+                user=settings.REDSHIFT_USERNAME,
+                password=settings.REDSHIFT_PASSWORD
+            )
             
-            # Get total count
+            cursor = conn.cursor()
+            
+            # Build and execute query
+            query = """
+                SELECT c.contract_id, c.contract_type, c.contract_value,
+                       c.renewal_probability, c.performance_score, c.satisfaction_score,
+                       c.ai_analysis, c.start_date, c.end_date,
+                       cust.name, cust.company
+                FROM contracts c
+                JOIN customers cust ON c.customer_id = cust.customer_id
+                WHERE c.status = %s
+            """
+            params = [status]
+            
+            if contract_type:
+                query += " AND c.contract_type = %s"
+                params.append(contract_type)
+            
+            query += " ORDER BY c.renewal_probability ASC LIMIT %s OFFSET %s"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            contracts = cursor.fetchall()
+            
+            # Execute count query
             count_query = "SELECT COUNT(*) FROM contracts WHERE status = %s"
             count_params = [status]
             if contract_type:
@@ -586,8 +721,18 @@ def get_contracts():
             cursor.execute(count_query, count_params)
             result = cursor.fetchone()
             total_count = result[0] if result else 0
-        
-        conn.close()
+            
+            cursor.close()
+            
+        except Exception as db_error:
+            logger.error(f"Database error in get_contracts: {db_error}")
+            return jsonify({
+                'error': 'Database connection error',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        finally:
+            if conn:
+                conn.close()
         
         # Format results
         contract_list = []

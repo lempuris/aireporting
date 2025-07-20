@@ -43,7 +43,8 @@ class SupportReferralAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get support ticket metrics
                     cursor.execute("""
                         SELECT 
@@ -59,7 +60,7 @@ class SupportReferralAnalyzer:
                             COUNT(CASE WHEN escalation_count > 0 THEN 1 END) as escalated_tickets,
                             AVG(interaction_count) as avg_interactions
                         FROM support_tickets
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                     """)
                     
                     metrics = cursor.fetchone()
@@ -70,7 +71,7 @@ class SupportReferralAnalyzer:
                                AVG(resolution_time_minutes) as avg_resolution,
                                AVG(customer_satisfaction_score) as avg_satisfaction
                         FROM support_tickets
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY category
                         ORDER BY count DESC
                         LIMIT 10
@@ -84,7 +85,7 @@ class SupportReferralAnalyzer:
                                AVG(customer_satisfaction_score) as avg_satisfaction,
                                COUNT(*) as ticket_count
                         FROM support_tickets
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                         AND customer_satisfaction_score IS NOT NULL
                         GROUP BY DATE(created_at)
                         ORDER BY date DESC
@@ -99,7 +100,7 @@ class SupportReferralAnalyzer:
                                AVG(resolution_time_minutes) as avg_resolution,
                                AVG(customer_satisfaction_score) as avg_satisfaction
                         FROM support_tickets
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY priority
                         ORDER BY 
                             CASE priority 
@@ -110,6 +111,8 @@ class SupportReferralAnalyzer:
                     """)
                     
                     priority_analysis = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             
             # Prepare data for AI analysis
@@ -152,7 +155,8 @@ class SupportReferralAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get referral call metrics
                     cursor.execute("""
                         SELECT 
@@ -168,7 +172,7 @@ class SupportReferralAnalyzer:
                             COUNT(CASE WHEN budget_discussed = TRUE THEN 1 END) as budget_discussions,
                             COUNT(CASE WHEN timeline_discussed = TRUE THEN 1 END) as timeline_discussions
                         FROM referral_calls
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                     """)
                     
                     metrics = cursor.fetchone()
@@ -179,7 +183,7 @@ class SupportReferralAnalyzer:
                                AVG(probability_of_conversion) as avg_conversion,
                                AVG(estimated_deal_value) as avg_deal_value
                         FROM referral_calls
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY call_type
                         ORDER BY avg_deal_value DESC
                     """)
@@ -192,7 +196,7 @@ class SupportReferralAnalyzer:
                                AVG(probability_of_conversion) as avg_conversion,
                                AVG(estimated_deal_value) as avg_deal_value
                         FROM referral_calls
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                         AND negotiation_stage IS NOT NULL
                         GROUP BY negotiation_stage
                         ORDER BY avg_deal_value DESC
@@ -206,13 +210,15 @@ class SupportReferralAnalyzer:
                                AVG(probability_of_conversion) as avg_conversion,
                                COUNT(*) as call_count
                         FROM referral_calls
-                        WHERE created_at >= DATEADD(day, -30, CURRENT_DATE)
+                        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY DATE(created_at)
                         ORDER BY date DESC
                         LIMIT 30
                     """)
                     
                     conversion_trends = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             
             # Prepare data for AI analysis
@@ -254,7 +260,8 @@ class SupportReferralAnalyzer:
         
         try:
             with get_connection_context() as conn:
-                with conn.cursor() as cursor:
+                cursor = conn.cursor()
+                try:
                     # Get customer's support tickets
                     cursor.execute("""
                         SELECT 
@@ -300,6 +307,8 @@ class SupportReferralAnalyzer:
                     """, (customer_id,))
                     
                     interactions = cursor.fetchall()
+                finally:
+                    cursor.close()
             
             
             # Prepare data for AI analysis

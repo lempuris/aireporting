@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, 
@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Search,
   Eye,
-  Clock,
   Database
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -28,9 +27,13 @@ const PredictiveAnalytics = () => {
   const [isUsingCache, setIsUsingCache] = useState(false);
   const [showCacheManager, setShowCacheManager] = useState(false);
 
-  const COLORS = ['#EF4444', '#F59E0B', '#10B981'];
+  // Dynamic chart colors that adapt to theme
+  const getChartColor = useCallback(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    return isDark ? '#e5e7eb' : '#374151';
+  }, []);
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setIsUsingCache(false);
@@ -67,66 +70,76 @@ const PredictiveAnalytics = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
-  const churnRiskData = churnData?.risk_segments?.map((segment, index) => ({
-    name: segment.risk_level,
-    value: segment.count,
-    color: COLORS[index % COLORS.length]
-  })) || [];
+  const churnRiskData = useMemo(() => {
+    const COLORS = ['#EF4444', '#F59E0B', '#10B981'];
+    const dataArray = churnData?.risk_segments?.map((segment, index) => ({
+      name: segment.risk_level,
+      value: segment.count,
+      color: COLORS[index % COLORS.length]
+    })) || [];
 
-  // Fallback data if no churn risk segments
-  if (churnRiskData.length === 0) {
-    churnRiskData.push(
-      { name: 'No Data', value: 1, color: COLORS[0] }
-    );
-  }
+    // Fallback data if no churn risk segments
+    if (dataArray.length === 0) {
+      dataArray.push(
+        { name: 'No Data', value: 1, color: COLORS[0] }
+      );
+    }
+    return dataArray;
+  }, [churnData?.risk_segments]);
 
-  const revenueForecastData = Array.isArray(revenueData?.forecast)
-    ? revenueData.forecast.map((month, index) => ({
-        month: `Month ${index + 1}`,
-        projected: month.projected_revenue || 0,
-        actual: month.actual_revenue || null,
-        growth: (month.growth_rate || 0) * 100
-      }))
-    : [];
+  const revenueForecastData = useMemo(() => {
+    const dataArray = Array.isArray(revenueData?.forecast)
+      ? revenueData.forecast.map((month, index) => ({
+          month: `Month ${index + 1}`,
+          projected: month.projected_revenue || 0,
+          actual: month.actual_revenue || null,
+          growth: (month.growth_rate || 0) * 100
+        }))
+      : [];
 
-  // Fallback data if no forecast
-  if (revenueForecastData.length === 0) {
-    revenueForecastData.push({
-      month: 'No Data',
-      projected: 0,
-      actual: 0,
-      growth: 0
-    });
-  }
+    // Fallback data if no forecast
+    if (dataArray.length === 0) {
+      dataArray.push({
+        month: 'No Data',
+        projected: 0,
+        actual: 0,
+        growth: 0
+      });
+    }
+    return dataArray;
+  }, [revenueData?.forecast]);
 
-  const highRiskCustomers = churnData?.high_risk_customers?.filter(customer => 
-    customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.company?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const highRiskCustomers = useMemo(() => {
+    const dataArray = churnData?.high_risk_customers?.filter(customer => 
+      customer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.company?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [];
 
-  // Fallback data if no high risk customers
-  if (highRiskCustomers.length === 0) {
-    highRiskCustomers.push({
-      name: 'No Data',
-      company: 'No Data',
-      churn_risk: 0,
-      lifetime_value: 0,
-      email: 'N/A'
-    });
-  }
+    // Fallback data if no high risk customers
+    if (dataArray.length === 0) {
+      dataArray.push({
+        name: 'No Data',
+        company: 'No Data',
+        churn_risk: 0,
+        lifetime_value: 0,
+        email: 'N/A'
+      });
+    }
+    return dataArray;
+  }, [churnData?.high_risk_customers, searchTerm]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading predictive analytics...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4" style={{ color: 'rgb(var(--color-text-secondary))' }}>Loading predictive analytics...</p>
         </div>
       </div>
     );
@@ -137,12 +150,12 @@ const PredictiveAnalytics = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Predictive Analytics</h1>
-          <p className="text-gray-600">AI-powered predictions and forecasting</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'rgb(var(--color-text-primary))' }}>Predictive Analytics</h1>
+          <p style={{ color: 'rgb(var(--color-text-secondary))' }}>AI-powered predictions and forecasting</p>
         </div>
         <div className="flex items-center space-x-3">
           {isUsingCache && (
-            <div className="flex items-center space-x-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+            <div className="flex items-center space-x-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 px-3 py-1 rounded-full">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span>Cached</span>
             </div>
@@ -150,7 +163,8 @@ const PredictiveAnalytics = () => {
           {cacheStats && (
             <button
               onClick={() => setShowCacheManager(true)}
-              className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="flex items-center space-x-2 text-sm transition-colors hover:opacity-80"
+              style={{ color: 'rgb(var(--color-text-secondary))' }}
             >
               <Database className="h-4 w-4" />
               <span>Cache: {cacheStats.size}/{cacheStats.maxSize}</span>
@@ -211,7 +225,7 @@ const PredictiveAnalytics = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Churn Risk Distribution</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Churn Risk Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -228,7 +242,14 @@ const PredictiveAnalytics = () => {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                  border: '1px solid rgb(var(--color-border))',
+                  borderRadius: '0.5rem'
+                }}
+                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </motion.div>
@@ -239,15 +260,23 @@ const PredictiveAnalytics = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Forecast (6 Months)</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Revenue Forecast</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={revenueForecastData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+              <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+              <XAxis dataKey="month" stroke={getChartColor()} />
+              <YAxis stroke={getChartColor()} />
+              <Tooltip 
+                formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} 
+                contentStyle={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                  border: '1px solid rgb(var(--color-border))',
+                  borderRadius: '0.5rem'
+                }}
+                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              />
               <Line type="monotone" dataKey="projected" stroke="#3B82F6" strokeWidth={2} name="Projected" />
-              {revenueForecastData.some(item => item.actual) && (
+              {revenueForecastData.some(item => item.actual !== null) && (
                 <Line type="monotone" dataKey="actual" stroke="#10B981" strokeWidth={2} name="Actual" />
               )}
             </LineChart>
@@ -255,84 +284,126 @@ const PredictiveAnalytics = () => {
         </motion.div>
       </div>
 
+      {/* Growth Trends */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="card"
+      >
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Growth Trends</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={revenueForecastData}>
+            <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+            <XAxis dataKey="month" stroke={getChartColor()} />
+            <YAxis stroke={getChartColor()} />
+            <Tooltip 
+              formatter={(value) => [`${value.toFixed(1)}%`, 'Growth Rate']} 
+              contentStyle={{ 
+                backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                border: '1px solid rgb(var(--color-border))',
+                borderRadius: '0.5rem'
+              }}
+              labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+            />
+            <Bar dataKey="growth" fill="#10B981" />
+          </BarChart>
+        </ResponsiveContainer>
+      </motion.div>
+
+      {/* AI Insights */}
+      {(churnData?.insights || revenueData?.insights) && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card"
+        >
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>AI-Generated Predictive Insights</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...(churnData?.insights || []), ...(revenueData?.insights || [])].slice(0, 4).map((insight, index) => (
+              <InsightCard
+                key={index}
+                insight={insight.insight || insight}
+                type={insight.type || "prediction"}
+                priority={insight.priority || (index < 2 ? 'high' : 'medium')}
+                timestamp={insight.timestamp || new Date().toISOString()}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* High Risk Customers */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="card"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">High Risk Customers</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold" style={{ color: 'rgb(var(--color-text-primary))' }}>High Risk Customers</h3>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: 'rgb(var(--color-text-tertiary))' }} />
             <input
               type="text"
               placeholder="Search customers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+              style={{ 
+                backgroundColor: 'rgb(var(--color-bg-secondary))',
+                borderColor: 'rgb(var(--color-border-secondary))',
+                color: 'rgb(var(--color-text-primary))'
+              }}
             />
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y" style={{ borderColor: 'rgb(var(--color-border))' }}>
+            <thead style={{ backgroundColor: 'rgb(var(--color-bg-tertiary))' }}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Company
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Churn Risk
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   LTV
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {highRiskCustomers.map((customer, index) => (
-                <tr key={index} className="hover:bg-gray-50">
+            <tbody style={{ backgroundColor: 'rgb(var(--color-bg-secondary))' }} className="divide-y">
+              {highRiskCustomers.slice(0, 10).map((customer) => (
+                <tr key={customer.email} className="hover:opacity-80 transition-opacity" style={{ borderColor: 'rgb(var(--color-border))' }}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary-600" />
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                        <div className="text-sm text-gray-500">{customer.email}</div>
-                      </div>
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: 'rgb(var(--color-text-primary))' }}>{customer.name}</div>
+                      <div className="text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>{customer.company}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {customer.company}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-16 rounded-full h-2 mr-2" style={{ backgroundColor: 'rgb(var(--color-border))' }}>
+                        <div 
+                          className="bg-red-500 h-2 rounded-full" 
+                          style={{ width: `${(customer.churn_risk || 0) * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                        {((customer.churn_risk || 0) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                    ${customer.lifetime_value?.toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      customer.churn_risk > 0.7 
-                        ? 'bg-red-100 text-red-800' 
-                        : customer.churn_risk > 0.4 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {(customer.churn_risk * 100).toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${customer.lifetime_value?.toLocaleString() || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => setSelectedCustomer(customer)}
-                      className="text-primary-600 hover:text-primary-900 flex items-center space-x-1"
+                      className="flex items-center space-x-1 text-sm text-primary-600 hover:text-primary-800 transition-colors"
                     >
                       <Eye className="h-4 w-4" />
                       <span>View Details</span>
@@ -344,78 +415,6 @@ const PredictiveAnalytics = () => {
           </table>
         </div>
       </motion.div>
-
-      {/* AI Insights */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="card"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">AI-Generated Predictive Insights</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {churnData?.insights?.slice(0, 4).map((insight, index) => (
-            <InsightCard
-              key={index}
-              insight={typeof insight === 'string' ? insight : insight.insight || 'Churn insight'}
-              type={insight.type || "prediction"}
-              priority={insight.priority || (index < 2 ? 'high' : 'medium')}
-              timestamp={insight.timestamp || churnData?.timestamp}
-            />
-          ))}
-          {revenueData?.insights && revenueData.insights.length > 0 && (
-            <InsightCard
-              insight={Array.isArray(revenueData.insights) ? revenueData.insights[0] : revenueData.insights}
-              type="revenue"
-              priority="high"
-              timestamp={revenueData?.timestamp}
-            />
-          )}
-        </div>
-      </motion.div>
-
-      {/* Customer Detail Modal */}
-      {selectedCustomer && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Details</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Name</label>
-                  <p className="text-sm text-gray-900">{selectedCustomer.name}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Company</label>
-                  <p className="text-sm text-gray-900">{selectedCustomer.company}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Churn Risk</label>
-                  <p className="text-sm text-gray-900">{((selectedCustomer.churn_risk || 0) * 100).toFixed(1)}%</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Lifetime Value</label>
-                  <p className="text-sm text-gray-900">${(selectedCustomer.lifetime_value || 0)?.toLocaleString() || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Last Activity</label>
-                  <p className="text-sm text-gray-900">{selectedCustomer.last_activity || 'N/A'}</p>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setSelectedCustomer(null)}
-                  className="btn-secondary"
-                >
-                  Close
-                </button>
-                <button className="btn-primary">
-                  Take Action
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Cache Manager Modal */}
       <CacheManager 

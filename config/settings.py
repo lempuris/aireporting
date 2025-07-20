@@ -14,9 +14,15 @@ class Settings:
     # Redshift Configuration
     REDSHIFT_HOST: str = os.getenv("REDSHIFT_HOST", "localhost")
     REDSHIFT_PORT: int = int(os.getenv("REDSHIFT_PORT", "5439"))
-    REDSHIFT_DATABASE: str = os.getenv("REDSHIFT_DB", "ai_reporting")
-    REDSHIFT_USERNAME: str = os.getenv("REDSHIFT_USER", "admin")
+    REDSHIFT_DATABASE: str = os.getenv("REDSHIFT_DATABASE", os.getenv("REDSHIFT_DB", "ai_reporting"))
+    REDSHIFT_USERNAME: str = os.getenv("REDSHIFT_USERNAME", os.getenv("REDSHIFT_USER", "admin"))
     REDSHIFT_PASSWORD: str = os.getenv("REDSHIFT_PASSWORD", "password")
+    
+    # Legacy property names for backward compatibility
+    DATABASE_HOST = REDSHIFT_HOST
+    DATABASE_PORT = REDSHIFT_PORT
+    DATABASE_NAME = REDSHIFT_DATABASE
+    DATABASE_USER = REDSHIFT_USERNAME
     
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")

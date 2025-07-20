@@ -1,339 +1,398 @@
-import React, { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { 
   Phone, 
-  CheckCircle, 
-  Target, 
+  Users, 
+  TrendingUp, 
   DollarSign,
   RefreshCw,
-  X,
-  BarChart3,
-  Trophy,
+  Search,
+  Calendar,
   Database
 } from 'lucide-react';
-import { getReferralCallsAnalysis, getCacheStats } from '../services/cachedApi';
+import { toast } from 'react-hot-toast';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import MetricCard from '../components/MetricCard';
 import InsightCard from '../components/InsightCard';
 import CacheManager from '../components/CacheManager';
+import { getReferralCallsAnalysis, getCacheStats } from '../services/cachedApi';
 
 const ReferralAnalysis = () => {
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [aiInsightsEnabled, setAiInsightsEnabled] = useState(true);
-    const [cacheStats, setCacheStats] = useState(null);
-    const [isUsingCache, setIsUsingCache] = useState(false);
-    const [showCacheManager, setShowCacheManager] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [cacheStats, setCacheStats] = useState(null);
+  const [isUsingCache, setIsUsingCache] = useState(false);
+  const [showCacheManager, setShowCacheManager] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-    }, [aiInsightsEnabled]);
+  // Dynamic chart colors that adapt to theme
+  const getChartColor = useCallback(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    return isDark ? '#e5e7eb' : '#374151';
+  }, []);
 
-    const fetchData = async (forceRefresh = false) => {
-        try {
-            setLoading(true);
-            setError(null);
-            setIsUsingCache(false);
-            
-            const startTime = performance.now();
-            const response = await getReferralCallsAnalysis(aiInsightsEnabled, forceRefresh);
-            const endTime = performance.now();
-            const loadTime = endTime - startTime;
-            
-            // Check if we're using cached data
-            if (loadTime < 100 && !forceRefresh) {
-                setIsUsingCache(true);
-                toast.success(`Data loaded from cache (${loadTime.toFixed(0)}ms)`);
-            } else if (forceRefresh) {
-                toast.success(`Data refreshed (${loadTime.toFixed(0)}ms)`);
-            } else {
-                toast.success(`Data loaded (${loadTime.toFixed(0)}ms)`);
-            }
-            
-            setData(response.data);
-            setCacheStats(getCacheStats());
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    try {
+      setLoading(true);
+      setIsUsingCache(false);
+      
+      const startTime = performance.now();
+      const response = await getReferralCallsAnalysis(true, forceRefresh);
+      const endTime = performance.now();
+      const loadTime = endTime - startTime;
+      
+      // Check if we're using cached data
+      if (loadTime < 100 && !forceRefresh) {
+        setIsUsingCache(true);
+        toast.success(`Data loaded from cache (${loadTime.toFixed(0)}ms)`);
+      } else if (forceRefresh) {
+        toast.success(`Data refreshed (${loadTime.toFixed(0)}ms)`);
+      } else {
+        toast.success(`Data loaded (${loadTime.toFixed(0)}ms)`);
+      }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading referral analysis...</p>
-                </div>
-            </div>
-        );
+      setData(response.data);
+      setCacheStats(getCacheStats());
+    } catch (error) {
+      console.error('Error fetching referral data:', error);
+      toast.error('Failed to load referral analysis');
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    if (error) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="text-red-600 text-6xl mb-4">⚠️</div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Data</h2>
-                    <p className="text-gray-600 mb-4">{error}</p>
-                    <button
-                        onClick={fetchData}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                        Retry
-                    </button>
-                </div>
-            </div>
-        );
-    }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    if (!data) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="text-gray-600 text-6xl mb-4">📊</div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">No Data Available</h2>
-                    <p className="text-gray-600">Referral analysis data is not available.</p>
-                </div>
-            </div>
-        );
-    }
+  const filteredCalls = useMemo(() => {
+    // Since the API doesn't return individual calls, we'll show call types as rows
+    return data?.metrics?.call_types?.filter(callType => {
+      const matchesSearch = callType.type?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesAgent = selectedAgent === 'all' || true; // No agent filtering for call types
+      const matchesStatus = selectedStatus === 'all' || true; // No status filtering for call types
+      return matchesSearch && matchesAgent && matchesStatus;
+    }) || [];
+  }, [data?.metrics?.call_types, searchTerm, selectedAgent, selectedStatus]);
 
-    const { metrics, insights } = data;
+  const callVolumeData = useMemo(() => {
+    // Use conversion trends data for volume chart
+    return data?.metrics?.conversion_trends?.map((trend, index) => ({
+      month: new Date(trend.date).toLocaleDateString('en-US', { month: 'short' }),
+      calls: trend.call_count,
+      conversions: Math.round(trend.call_count * trend.avg_conversion),
+      conversionRate: trend.avg_conversion * 100
+    })) || [];
+  }, [data?.metrics?.conversion_trends]);
 
+  const agentPerformanceData = useMemo(() => {
+    const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+    // Use call_types data for agent performance
+    return data?.metrics?.call_types?.map((callType, index) => ({
+      name: callType.type,
+      value: callType.avg_conversion * 100,
+      color: COLORS[index % COLORS.length]
+    })) || [];
+  }, [data?.metrics?.call_types]);
+
+  const conversionTrends = useMemo(() => {
+    // Use negotiation_stages data for conversion trends
+    return data?.metrics?.negotiation_stages?.map((stage, index) => ({
+      period: stage.stage,
+      rate: stage.avg_conversion * 100,
+      calls: stage.count,
+      revenue: stage.avg_deal_value
+    })) || [];
+  }, [data?.metrics?.negotiation_stages]);
+
+  if (loading) {
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            <div className="mb-8">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Referral Call Analysis</h1>
-                        <p className="text-gray-600 mt-2">Comprehensive analysis of referral call effectiveness and conversion outcomes</p>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                        <label className="flex items-center">
-                            <input
-                                type="checkbox"
-                                checked={aiInsightsEnabled}
-                                onChange={(e) => setAiInsightsEnabled(e.target.checked)}
-                                className="mr-2"
-                            />
-                            <span className="text-sm text-gray-700">AI Insights</span>
-                        </label>
-                        <div className="flex items-center space-x-3">
-                            {isUsingCache && (
-                                <div className="flex items-center space-x-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                    <span>Cached</span>
-                                </div>
-                            )}
-                            {cacheStats && (
-                                <button
-                                    onClick={() => setShowCacheManager(true)}
-                                    className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                                >
-                                    <Database className="h-4 w-4" />
-                                    <span>Cache: {cacheStats.size}/{cacheStats.maxSize}</span>
-                                </button>
-                            )}
-                            <button
-                                onClick={() => fetchData(true)}
-                                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center space-x-2"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                                <span>Refresh</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <MetricCard
-                    title="Total Calls"
-                    value={metrics.total_calls}
-                    icon={Phone}
-                    change="+15"
-                    changeType="positive"
-                />
-                <MetricCard
-                    title="Completed Calls"
-                    value={metrics.completed_calls}
-                    icon={CheckCircle}
-                    change={((metrics.completed_calls / metrics.total_calls) * 100).toFixed(1)}
-                    changeType="neutral"
-                />
-                <MetricCard
-                    title="Avg Conversion Probability"
-                    value={metrics.avg_conversion_probability * 100}
-                    format="percentage"
-                    icon={Target}
-                    change="+3"
-                    changeType="positive"
-                />
-                <MetricCard
-                    title="Avg Deal Value"
-                    value={metrics.avg_deal_value}
-                    format="currency"
-                    icon={DollarSign}
-                    change="+8"
-                    changeType="positive"
-                />
-            </div>
-
-            {/* Detailed Metrics */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                {/* Call Performance */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Call Performance Metrics</h3>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Scheduled Calls</span>
-                            <span className="font-semibold">{metrics.scheduled_calls}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Average Duration</span>
-                            <span className="font-semibold">{metrics.avg_duration.toFixed(0)} minutes</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Decision Maker Present</span>
-                            <span className="font-semibold">{metrics.decision_maker_calls}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Budget Discussions</span>
-                            <span className="font-semibold">{metrics.budget_discussions}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sentiment & Engagement */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Sentiment & Engagement Analysis</h3>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Sentiment Score</span>
-                            <span className="font-semibold">{metrics.avg_sentiment.toFixed(3)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Urgency Score</span>
-                            <span className="font-semibold">{metrics.avg_urgency.toFixed(3)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Timeline Discussions</span>
-                            <span className="font-semibold">{metrics.timeline_discussions}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Conversion Rate</span>
-                            <span className="font-semibold">{(metrics.avg_conversion_probability * 100).toFixed(1)}%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Call Type Performance */}
-            {metrics.call_types && metrics.call_types.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6 mb-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Call Type Performance</h3>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="text-left py-2">Call Type</th>
-                                    <th className="text-right py-2">Count</th>
-                                    <th className="text-right py-2">Avg Conversion</th>
-                                    <th className="text-right py-2">Avg Deal Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {metrics.call_types.map((callType, index) => (
-                                    <tr key={index} className="border-b hover:bg-gray-50">
-                                        <td className="py-2 capitalize">{callType.type}</td>
-                                        <td className="text-right py-2">{callType.count}</td>
-                                        <td className="text-right py-2">{(callType.avg_conversion * 100).toFixed(1)}%</td>
-                                        <td className="text-right py-2">${callType.avg_deal_value.toLocaleString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* Negotiation Stages */}
-            {metrics.negotiation_stages && metrics.negotiation_stages.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6 mb-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Negotiation Stage Analysis</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {metrics.negotiation_stages.map((stage, index) => (
-                            <div key={index} className="border rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-semibold capitalize">{stage.stage}</span>
-                                    {stage.stage === 'won' ? (
-                                        <Trophy className="h-6 w-6 text-yellow-500" />
-                                    ) : stage.stage === 'lost' ? (
-                                        <X className="h-6 w-6 text-red-500" />
-                                    ) : (
-                                        <BarChart3 className="h-6 w-6 text-blue-500" />
-                                    )}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    <div>Count: {stage.count}</div>
-                                    <div>Conversion: {(stage.avg_conversion * 100).toFixed(1)}%</div>
-                                    <div>Deal Value: ${stage.avg_deal_value.toLocaleString()}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Conversion Trends */}
-            {metrics.conversion_trends && metrics.conversion_trends.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6 mb-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversion Trends (Last 30 Days)</h3>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="text-left py-2">Date</th>
-                                    <th className="text-right py-2">Avg Conversion</th>
-                                    <th className="text-right py-2">Call Count</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {metrics.conversion_trends.slice(0, 10).map((trend, index) => (
-                                    <tr key={index} className="border-b hover:bg-gray-50">
-                                        <td className="py-2">{trend.date}</td>
-                                        <td className="text-right py-2">{(trend.avg_conversion * 100).toFixed(1)}%</td>
-                                        <td className="text-right py-2">{trend.call_count}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* AI Insights */}
-            {aiInsightsEnabled && insights && insights.length > 0 && (
-                <div className="mb-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">AI-Generated Insights</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {insights.map((insight, index) => (
-                            <InsightCard key={index} insight={insight} />
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Cache Manager Modal */}
-            <CacheManager 
-                isOpen={showCacheManager} 
-                onClose={() => setShowCacheManager(false)} 
-            />
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4" style={{ color: 'rgb(var(--color-text-secondary))' }}>Loading referral analysis...</p>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'rgb(var(--color-text-primary))' }}>Referral Analysis</h1>
+          <p style={{ color: 'rgb(var(--color-text-secondary))' }}>Referral call performance and conversion analytics</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          {isUsingCache && (
+            <div className="flex items-center space-x-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 px-3 py-1 rounded-full">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Cached</span>
+            </div>
+          )}
+          {cacheStats && (
+            <button
+              onClick={() => setShowCacheManager(true)}
+              className="flex items-center space-x-2 text-sm transition-colors hover:opacity-80"
+              style={{ color: 'rgb(var(--color-text-secondary))' }}
+            >
+              <Database className="h-4 w-4" />
+              <span>Cache: {cacheStats.size}/{cacheStats.maxSize}</span>
+            </button>
+          )}
+          <button
+            onClick={() => fetchData(true)}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        <MetricCard
+          title="Total Calls"
+          value={data?.metrics?.total_calls || 0}
+          icon={Phone}
+        />
+        <MetricCard
+          title="Conversion Rate"
+          value={(data?.metrics?.avg_conversion_probability || 0) * 100}
+          format="percentage"
+          icon={TrendingUp}
+        />
+        <MetricCard
+          title="Avg Deal Value"
+          value={data?.metrics?.avg_deal_value || 0}
+          format="currency"
+          icon={DollarSign}
+        />
+        <MetricCard
+          title="Completed Calls"
+          value={data?.metrics?.completed_calls || 0}
+          icon={Users}
+        />
+      </motion.div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Call Volume Trends */}
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="card"
+        >
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Call Volume Trends</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={callVolumeData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+              <XAxis dataKey="month" stroke={getChartColor()} />
+              <YAxis stroke={getChartColor()} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                  border: '1px solid rgb(var(--color-border))',
+                  borderRadius: '0.5rem'
+                }}
+                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              />
+              <Line type="monotone" dataKey="calls" stroke="#3B82F6" strokeWidth={2} name="Total Calls" />
+              <Line type="monotone" dataKey="conversions" stroke="#10B981" strokeWidth={2} name="Conversions" />
+            </LineChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Agent Performance */}
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="card"
+        >
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Call Types Performance</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={agentPerformanceData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {agentPerformanceData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip 
+                formatter={(value) => [`${value.toFixed(1)}%`, 'Conversion Rate']} 
+                contentStyle={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                  border: '1px solid rgb(var(--color-border))',
+                  borderRadius: '0.5rem'
+                }}
+                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
+
+      {/* Conversion Trends */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="card"
+      >
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Negotiation Stages Performance</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={conversionTrends}>
+            <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
+            <XAxis dataKey="period" stroke={getChartColor()} />
+            <YAxis stroke={getChartColor()} />
+            <Tooltip 
+              formatter={(value, name) => [
+                name === 'rate' ? `${value.toFixed(1)}%` : 
+                name === 'revenue' ? `$${value.toLocaleString()}` : value,
+                name === 'rate' ? 'Conversion Rate' : 
+                name === 'revenue' ? 'Revenue' : 'Calls'
+              ]} 
+              contentStyle={{ 
+                backgroundColor: 'rgb(var(--color-bg-secondary))', 
+                border: '1px solid rgb(var(--color-border))',
+                borderRadius: '0.5rem'
+              }}
+              labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+            />
+            <Bar dataKey="rate" fill="#10B981" name="Conversion Rate" />
+            <Bar dataKey="calls" fill="#3B82F6" name="Total Calls" />
+          </BarChart>
+        </ResponsiveContainer>
+      </motion.div>
+
+      {/* AI Insights */}
+      {data?.insights && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card"
+        >
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>AI-Generated Referral Insights</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data?.insights?.map((insight, index) => (
+              <InsightCard
+                key={index}
+                insight={insight.insight || insight}
+                type={insight.type || "referral"}
+                priority={insight.priority || (index < 2 ? 'high' : 'medium')}
+                timestamp={insight.timestamp || data?.timestamp}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Call List */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="card"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold" style={{ color: 'rgb(var(--color-text-primary))' }}>Call Types Overview</h3>
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: 'rgb(var(--color-text-tertiary))' }} />
+              <input
+                type="text"
+                placeholder="Search call types..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+                style={{ 
+                  backgroundColor: 'rgb(var(--color-bg-secondary))',
+                  borderColor: 'rgb(var(--color-border-secondary))',
+                  color: 'rgb(var(--color-text-primary))'
+                }}
+              />
+            </div>
+            <select
+              value={selectedAgent}
+              onChange={(e) => setSelectedAgent(e.target.value)}
+              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200"
+              style={{ 
+                backgroundColor: 'rgb(var(--color-bg-secondary))',
+                borderColor: 'rgb(var(--color-border-secondary))',
+                color: 'rgb(var(--color-text-primary))'
+              }}
+            >
+              <option value="all">All Types</option>
+              <option value="demo">Demo</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="closing">Closing</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y" style={{ borderColor: 'rgb(var(--color-border))' }}>
+            <thead style={{ backgroundColor: 'rgb(var(--color-bg-tertiary))' }}>
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                  Call Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                  Total Calls
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                  Conversion Rate
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                  Avg Deal Value
+                </th>
+              </tr>
+            </thead>
+            <tbody style={{ backgroundColor: 'rgb(var(--color-bg-secondary))' }} className="divide-y">
+              {filteredCalls.map((callType, index) => (
+                <tr key={index} className="hover:opacity-80 transition-opacity" style={{ borderColor: 'rgb(var(--color-border))' }}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium capitalize" style={{ color: 'rgb(var(--color-text-primary))' }}>{callType.type}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                    {callType.count}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                    {(callType.avg_conversion * 100).toFixed(1)}%
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
+                    ${callType.avg_deal_value?.toLocaleString() || 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+
+      {/* Cache Manager Modal */}
+      <CacheManager 
+        isOpen={showCacheManager} 
+        onClose={() => setShowCacheManager(false)} 
+      />
+    </div>
+  );
 };
 
 export default ReferralAnalysis; 
