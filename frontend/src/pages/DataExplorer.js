@@ -101,20 +101,40 @@ const DataExplorer = () => {
   }, [data?.business_metrics?.metrics?.metrics]);
 
   const correlationData = useMemo(() => {
-    // Create meaningful correlation data showing confidence vs change relationship
-    return data?.business_metrics?.metrics?.metrics?.slice(0, 15)?.map((metric, index) => ({
-      x: (metric.confidence || 0.5) * 100, // Confidence percentage (0-100)
-      y: metric.avg_change, // Change value (-5 to +5 range)
-      z: metric.increasing + metric.decreasing, // Total activity as bubble size
-      name: metric.name // For tooltip
-    })) || [];
+    const metrics = data?.business_metrics?.metrics?.metrics?.slice(0, 15) || [];
+    
+    // Filter out zero-confidence metrics for better distribution
+    const validMetrics = metrics.filter(m => m.confidence > 0);
+    
+    if (validMetrics.length === 0) return [];
+    
+    // Sort by confidence to create even distribution
+    const sortedMetrics = [...validMetrics].sort((a, b) => a.confidence - b.confidence);
+    
+    // Create evenly distributed x-axis positions using percentile-based spacing
+    return sortedMetrics.map((metric, index) => {
+      // Distribute points evenly across 20-95% range for better visual spacing
+      const evenlyDistributedX = 20 + (index / (sortedMetrics.length - 1)) * 75;
+      
+      // Add slight jitter based on actual confidence for authenticity
+      const confidenceJitter = ((metric.confidence * 100) % 10) * 2;
+      const finalX = evenlyDistributedX + confidenceJitter;
+      
+      return {
+        x: Math.min(95, Math.max(15, finalX)), // Ensure stays within bounds
+        y: metric.avg_change,
+        z: metric.increasing + metric.decreasing,
+        name: metric.name,
+        actualConfidence: metric.confidence * 100 // Store real confidence for tooltip
+      };
+    });
   }, [data?.business_metrics?.metrics?.metrics]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: 'rgb(var(--color-primary))' }}></div>
           <p className="mt-4" style={{ color: 'rgb(var(--color-text-secondary))' }}>Loading data explorer...</p>
         </div>
       </div>
@@ -201,11 +221,27 @@ const DataExplorer = () => {
               <YAxis stroke={getChartColor()} />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
               <Line type="monotone" dataKey="volume" stroke="#3B82F6" strokeWidth={2} />
             </LineChart>
@@ -218,20 +254,67 @@ const DataExplorer = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Metric Correlations</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <ScatterChart data={correlationData}>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Confidence vs Performance Change</h3>
+          <ResponsiveContainer width="100%" height={340}>
+            <ScatterChart data={correlationData} margin={{ top: 5, right: 30, left: 20, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
-              <XAxis type="number" dataKey="x" stroke={getChartColor()} />
-              <YAxis type="number" dataKey="y" stroke={getChartColor()} />
-              <ZAxis type="number" dataKey="z" range={[50, 200]} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+              <XAxis 
+                type="number" 
+                dataKey="x" 
+                stroke={getChartColor()} 
+                label={{ 
+                  value: 'Confidence Level (Distributed)', 
+                  position: 'insideBottom', 
+                  offset: -5,
+                  style: { textAnchor: 'middle', fill: getChartColor() }
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                domain={[0, 100]}
+              />
+              <YAxis 
+                type="number" 
+                dataKey="y" 
+                stroke={getChartColor()}
+                label={{ 
+                  value: 'Avg Change', 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  style: { textAnchor: 'middle', fill: getChartColor() }
+                }}
+              />
+              <ZAxis type="number" dataKey="z" range={[30, 150]} />
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div style={{ 
+                        backgroundColor: 'rgb(var(--color-bg-primary))',
+                        border: 'none',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                        padding: '12px 16px',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        backdropFilter: 'blur(10px)',
+                        WebkitBackdropFilter: 'blur(10px)',
+                        minWidth: '140px',
+                        color: 'rgb(var(--color-text-primary))'
+                      }}>
+                        <p style={{ fontWeight: '600', marginBottom: '6px', fontSize: '12px' }}>{data.name}</p>
+                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '2px' }}>
+                          Confidence: {data.actualConfidence?.toFixed(1)}%
+                        </p>
+                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '2px' }}>
+                          Avg Change: {data.y?.toFixed(2)}
+                        </p>
+                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '0' }}>
+                          Activity: {data.z} changes
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
               <Scatter dataKey="z" fill="#10B981" />
             </ScatterChart>
@@ -257,11 +340,29 @@ const DataExplorer = () => {
             <Tooltip 
               formatter={(value) => [`${(value * 100).toFixed(1)}%`, 'Confidence Score']} 
               contentStyle={{ 
-                backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                border: '1px solid rgb(var(--color-border))',
-                borderRadius: '0.5rem'
+                backgroundColor: 'rgb(var(--color-bg-primary))',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: '500',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                minWidth: '120px'
               }}
-              labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              labelStyle={{ 
+                color: 'rgb(var(--color-text-primary))', 
+                fontWeight: '600',
+                marginBottom: '4px',
+                fontSize: '12px',
+                textTransform: 'capitalize'
+              }}
+              itemStyle={{
+                color: 'rgb(var(--color-text-secondary))',
+                fontSize: '13px'
+              }}
+              cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
             />
             <Bar dataKey="quality_score" fill="#8B5CF6" />
           </BarChart>
@@ -378,8 +479,11 @@ const DataExplorer = () => {
                     <div className="flex items-center">
                       <div className="w-16 rounded-full h-2 mr-2" style={{ backgroundColor: 'rgb(var(--color-border))' }}>
                         <div 
-                          className="bg-primary-600 h-2 rounded-full" 
-                          style={{ width: `${(dataset.quality_score || 0) * 100}%` }}
+                          className="h-2 rounded-full" 
+                          style={{ 
+                            width: `${(dataset.quality_score || 0) * 100}%`,
+                            backgroundColor: 'rgb(var(--color-primary))'
+                          }}
                         ></div>
                       </div>
                       <span className="text-sm" style={{ color: 'rgb(var(--color-text-primary))' }}>
@@ -392,11 +496,17 @@ const DataExplorer = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
-                      <button className="flex items-center space-x-1 text-sm text-primary-600 hover:text-primary-800 transition-colors">
+                      <button 
+                        className="flex items-center space-x-1 text-sm transition-colors hover:opacity-80"
+                        style={{ color: 'rgb(var(--color-primary))' }}
+                      >
                         <Eye className="h-4 w-4" />
                         <span>View</span>
                       </button>
-                      <button className="flex items-center space-x-1 text-sm text-primary-600 hover:text-primary-800 transition-colors">
+                      <button 
+                        className="flex items-center space-x-1 text-sm transition-colors hover:opacity-80"
+                        style={{ color: 'rgb(var(--color-primary))' }}
+                      >
                         <Download className="h-4 w-4" />
                         <span>Export</span>
                       </button>

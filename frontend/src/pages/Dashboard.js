@@ -247,11 +247,27 @@ const Dashboard = () => {
               <Tooltip 
                 formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
               <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
             </LineChart>
@@ -283,11 +299,28 @@ const Dashboard = () => {
               </Pie>
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                  textTransform: 'capitalize'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -309,11 +342,29 @@ const Dashboard = () => {
             <Tooltip 
               formatter={(value) => [`$${value.toLocaleString()}`, 'Value']} 
               contentStyle={{ 
-                backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                border: '1px solid rgb(var(--color-border))',
-                borderRadius: '0.5rem'
+                backgroundColor: 'rgb(var(--color-bg-primary))',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: '500',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                minWidth: '120px'
               }}
-              labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              labelStyle={{ 
+                color: 'rgb(var(--color-text-primary))', 
+                fontWeight: '600',
+                marginBottom: '4px',
+                fontSize: '12px',
+                textTransform: 'capitalize'
+              }}
+              itemStyle={{
+                color: 'rgb(var(--color-text-secondary))',
+                fontSize: '13px'
+              }}
+              cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
             />
             <Bar dataKey="value" fill="#8B5CF6" name="Average Value" />
             <Bar dataKey="count" fill="#3B82F6" name="Count" />

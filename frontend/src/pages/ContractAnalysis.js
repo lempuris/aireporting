@@ -235,11 +235,28 @@ const ContractAnalysis = () => {
               </Pie>
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                  textTransform: 'capitalize'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -252,19 +269,50 @@ const ContractAnalysis = () => {
           className="card"
         >
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Renewal Rate by Contract Type</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={renewalData}>
+          <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={renewalData} margin={{ top: 5, right: 30, left: 20, bottom: 80 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
-              <XAxis dataKey="month" stroke={getChartColor()} />
+              <XAxis 
+                dataKey="month" 
+                stroke={getChartColor()} 
+                angle={-45}
+                textAnchor="end"
+                height={70}
+                interval={0}
+                tick={{ fontSize: 12 }}
+              />
               <YAxis stroke={getChartColor()} />
               <Tooltip 
-                formatter={(value) => [`${value.toFixed(1)}%`, 'Renewal Rate']} 
-                contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div style={{ 
+                        backgroundColor: 'rgb(var(--color-bg-primary))',
+                        border: 'none',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                        padding: '12px 16px',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        backdropFilter: 'blur(10px)',
+                        WebkitBackdropFilter: 'blur(10px)',
+                        minWidth: '150px',
+                        color: 'rgb(var(--color-text-primary))'
+                      }}>
+                        <p style={{ fontWeight: '600', marginBottom: '6px', fontSize: '12px' }}>{label}</p>
+                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '2px' }}>
+                          Renewal Rate: {data.rate.toFixed(1)}%
+                        </p>
+                        <p style={{ color: 'rgb(var(--color-text-secondary))', marginBottom: '0' }}>
+                          Contracts: {data.contracts}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
               />
               <Bar dataKey="rate" fill="#10B981" />
             </BarChart>
@@ -287,11 +335,29 @@ const ContractAnalysis = () => {
             <Tooltip 
               formatter={(value) => [`$${value.toLocaleString()}`, 'Value']} 
               contentStyle={{ 
-                backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                border: '1px solid rgb(var(--color-border))',
-                borderRadius: '0.5rem'
+                backgroundColor: 'rgb(var(--color-bg-primary))',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: '500',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                minWidth: '120px'
               }}
-              labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              labelStyle={{ 
+                color: 'rgb(var(--color-text-primary))', 
+                fontWeight: '600',
+                marginBottom: '4px',
+                fontSize: '12px',
+                textTransform: 'capitalize'
+              }}
+              itemStyle={{
+                color: 'rgb(var(--color-text-secondary))',
+                fontSize: '13px'
+              }}
+              cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
             />
             <Bar dataKey="avgValue" fill="#3B82F6" name="Average Value" />
             <Bar dataKey="totalValue" fill="#8B5CF6" name="Total Value" />

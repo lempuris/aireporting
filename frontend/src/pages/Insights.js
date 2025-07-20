@@ -281,11 +281,28 @@ const Insights = () => {
               </Pie>
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                  textTransform: 'capitalize'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -304,12 +321,34 @@ const Insights = () => {
               <XAxis dataKey="priority" stroke={getChartColor()} />
               <YAxis stroke={getChartColor()} />
               <Tooltip 
+                formatter={(value, name) => [
+                  `${value} insights`,
+                  'Count'
+                ]}
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '140px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                  textTransform: 'capitalize'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
+                cursor={{ fill: 'rgba(139, 92, 246, 0.1)' }}
               />
               <Bar dataKey="count" fill="#8B5CF6" />
             </BarChart>

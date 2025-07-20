@@ -78,14 +78,14 @@ const ReferralAnalysis = () => {
   }, [data?.metrics?.call_types, searchTerm, selectedAgent, selectedStatus]);
 
   const callVolumeData = useMemo(() => {
-    // Use conversion trends data for volume chart
-    return data?.metrics?.conversion_trends?.map((trend, index) => ({
-      month: new Date(trend.date).toLocaleDateString('en-US', { month: 'short' }),
-      calls: trend.call_count,
-      conversions: Math.round(trend.call_count * trend.avg_conversion),
-      conversionRate: trend.avg_conversion * 100
+    // Use call_types data to show volume by call type (better than single trend point)
+    return data?.metrics?.call_types?.map((callType, index) => ({
+      month: callType.type.charAt(0).toUpperCase() + callType.type.slice(1), // Capitalize first letter
+      calls: callType.count,
+      conversions: Math.round(callType.count * callType.avg_conversion),
+      conversionRate: callType.avg_conversion * 100
     })) || [];
-  }, [data?.metrics?.conversion_trends]);
+  }, [data?.metrics?.call_types]);
 
   const agentPerformanceData = useMemo(() => {
     const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
@@ -191,7 +191,7 @@ const ReferralAnalysis = () => {
           animate={{ opacity: 1, x: 0 }}
           className="card"
         >
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Call Volume Trends</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>Call Volume by Type</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={callVolumeData}>
               <CartesianGrid strokeDasharray="3 3" stroke={getChartColor()} opacity={0.2} />
@@ -199,11 +199,27 @@ const ReferralAnalysis = () => {
               <YAxis stroke={getChartColor()} />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
               <Line type="monotone" dataKey="calls" stroke="#3B82F6" strokeWidth={2} name="Total Calls" />
               <Line type="monotone" dataKey="conversions" stroke="#10B981" strokeWidth={2} name="Conversions" />
@@ -237,11 +253,28 @@ const ReferralAnalysis = () => {
               <Tooltip 
                 formatter={(value) => [`${value.toFixed(1)}%`, 'Conversion Rate']} 
                 contentStyle={{ 
-                  backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                  border: '1px solid rgb(var(--color-border))',
-                  borderRadius: '0.5rem'
+                  backgroundColor: 'rgb(var(--color-bg-primary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                  minWidth: '120px'
                 }}
-                labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+                labelStyle={{ 
+                  color: 'rgb(var(--color-text-primary))', 
+                  fontWeight: '600',
+                  marginBottom: '4px',
+                  fontSize: '12px',
+                  textTransform: 'capitalize'
+                }}
+                itemStyle={{
+                  color: 'rgb(var(--color-text-secondary))',
+                  fontSize: '13px'
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -268,11 +301,29 @@ const ReferralAnalysis = () => {
                 name === 'revenue' ? 'Revenue' : 'Calls'
               ]} 
               contentStyle={{ 
-                backgroundColor: 'rgb(var(--color-bg-secondary))', 
-                border: '1px solid rgb(var(--color-border))',
-                borderRadius: '0.5rem'
+                backgroundColor: 'rgb(var(--color-bg-primary))',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                padding: '12px 16px',
+                fontSize: '13px',
+                fontWeight: '500',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                minWidth: '120px'
               }}
-              labelStyle={{ color: 'rgb(var(--color-text-primary))' }}
+              labelStyle={{ 
+                color: 'rgb(var(--color-text-primary))', 
+                fontWeight: '600',
+                marginBottom: '4px',
+                fontSize: '12px',
+                textTransform: 'capitalize'
+              }}
+              itemStyle={{
+                color: 'rgb(var(--color-text-secondary))',
+                fontSize: '13px'
+              }}
+              cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
             />
             <Bar dataKey="rate" fill="#10B981" name="Conversion Rate" />
             <Bar dataKey="calls" fill="#3B82F6" name="Total Calls" />
