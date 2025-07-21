@@ -41,11 +41,6 @@ const SupportAnalysis = () => {
             // Check if we're using cached data
             if (loadTime < 100 && !forceRefresh) {
                 setIsUsingCache(true);
-                toast.success(`Data loaded from cache (${loadTime.toFixed(0)}ms)`);
-            } else if (forceRefresh) {
-                toast.success(`Data refreshed (${loadTime.toFixed(0)}ms)`);
-            } else {
-                toast.success(`Data loaded (${loadTime.toFixed(0)}ms)`);
             }
             
             setData(response.data);
@@ -287,9 +282,38 @@ const SupportAnalysis = () => {
                 <div className="mb-8">
                     <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(var(--color-text-primary))' }}>AI-Generated Insights</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {insights.map((insight, index) => (
-                            <InsightCard key={index} insight={insight} />
-                        ))}
+                        {insights
+                            ?.filter(insight => {
+                                // Filter out error insights
+                                const insightText = insight?.insight || insight;
+                                return insightText && 
+                                       typeof insightText === 'string' && 
+                                       !insightText.toLowerCase().includes('error') &&
+                                       insightText.trim().length > 0;
+                            })
+                            ?.map((insight, index) => (
+                                <InsightCard 
+                                    key={index} 
+                                    insight={insight?.insight || insight}
+                                    type={insight?.type || "support"}
+                                    priority={insight?.priority || (index < 2 ? 'high' : 'medium')}
+                                    timestamp={insight?.timestamp || data?.timestamp}
+                                />
+                            ))}
+                        {/* Show message if no valid insights */}
+                        {insights?.filter(insight => {
+                            const insightText = insight?.insight || insight;
+                            return insightText && 
+                                   typeof insightText === 'string' && 
+                                   !insightText.toLowerCase().includes('error') &&
+                                   insightText.trim().length > 0;
+                        }).length === 0 && (
+                            <div className="col-span-2 text-center py-8">
+                                <div className="text-sm" style={{ color: 'rgb(var(--color-text-secondary))' }}>
+                                    AI insights are currently unavailable. Please try refreshing the page.
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

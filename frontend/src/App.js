@@ -11,6 +11,7 @@ import DataExplorer from './pages/DataExplorer';
 import Insights from './pages/Insights';
 import SupportAnalysis from './pages/SupportAnalysis';
 import ReferralAnalysis from './pages/ReferralAnalysis';
+import SupportChatbot from './components/SupportChatbot';
 
 // Route transition component
 const RouteTransition = ({ children }) => {
@@ -62,6 +63,10 @@ function App() {
               </RouteTransition>
             </main>
           </div>
+          
+          {/* Support Chatbot */}
+          <SupportChatbot />
+          
           <Toaster
             position="top-right"
             toastOptions={{

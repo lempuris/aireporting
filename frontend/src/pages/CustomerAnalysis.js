@@ -51,11 +51,6 @@ const CustomerAnalysis = () => {
       // Cached data typically loads much faster (< 100ms)
       if (loadTime < 100 && !forceRefresh) {
         setIsUsingCache(true);
-        toast.success(`Data loaded from cache (${loadTime.toFixed(0)}ms)`);
-      } else if (forceRefresh) {
-        toast.success(`Data refreshed (${loadTime.toFixed(0)}ms)`);
-      } else {
-        toast.success(`Data loaded (${loadTime.toFixed(0)}ms)`);
       }
 
       setData(customerData.data);
