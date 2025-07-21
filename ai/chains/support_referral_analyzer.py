@@ -373,23 +373,29 @@ class SupportReferralAnalyzer:
             """
             
             if not self.llm:
+                logger.warning("LLM not available - OpenAI API key required")
                 return ["AI insights not available - OpenAI API key required"]
             
+            logger.info("Attempting to generate AI insights...")
             response = self.llm.invoke(prompt)
+            logger.info(f"Received response from LLM: {type(response)}")
             
             # Parse the response
             if isinstance(response, str):
                 # Split by lines and clean up
                 insights = [line.strip() for line in response.split('\n') if line.strip() and not line.strip().startswith('#')]
+                logger.info(f"Generated {len(insights)} insights from string response")
                 return insights[:5]  # Return up to 5 insights
             elif isinstance(response, list):
+                logger.info(f"Generated {len(response)} insights from list response")
                 return response[:5]
             else:
+                logger.warning(f"Unexpected response type: {type(response)}")
                 return ["AI insights generated successfully"]
                 
         except Exception as e:
-            logger.error(f"Error generating support insights: {e}")
-            return ["Error generating AI insights"]
+            logger.error(f"Error generating support insights: {str(e)}", exc_info=True)
+            return [f"Error generating AI insights: {str(e)}"]
     
     def _generate_referral_insights(self, data: Dict[str, Any]) -> List[str]:
         """Generate AI insights for referral call analysis."""
@@ -414,23 +420,29 @@ class SupportReferralAnalyzer:
             """
             
             if not self.llm:
+                logger.warning("LLM not available - OpenAI API key required")
                 return ["AI insights not available - OpenAI API key required"]
             
+            logger.info("Attempting to generate referral AI insights...")
             response = self.llm.invoke(prompt)
+            logger.info(f"Received response from LLM: {type(response)}")
             
             # Parse the response
             if isinstance(response, str):
                 # Split by lines and clean up
                 insights = [line.strip() for line in response.split('\n') if line.strip() and not line.strip().startswith('#')]
+                logger.info(f"Generated {len(insights)} referral insights from string response")
                 return insights[:5]  # Return up to 5 insights
             elif isinstance(response, list):
+                logger.info(f"Generated {len(response)} referral insights from list response")
                 return response[:5]
             else:
+                logger.warning(f"Unexpected referral response type: {type(response)}")
                 return ["AI insights generated successfully"]
                 
         except Exception as e:
-            logger.error(f"Error generating referral insights: {e}")
-            return ["Error generating AI insights"]
+            logger.error(f"Error generating referral insights: {str(e)}", exc_info=True)
+            return [f"Error generating AI insights: {str(e)}"]
     
     def _generate_customer_journey_insights(self, data: Dict[str, Any]) -> List[str]:
         """Generate AI insights for customer support journey analysis."""
